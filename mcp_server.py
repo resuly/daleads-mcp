@@ -1,0 +1,321 @@
+"""
+DA Leads MCP Server
+Exposes DA Leads API as MCP tools for AI agents (Claude, Cursor, etc.)
+
+Usage:
+    # Run directly
+    python mcp_server.py
+
+    # Claude Code config (~/.claude/mcp.json):
+    {
+      "mcpServers": {
+        "da-leads": {
+          "command": "python",
+          "args": ["/path/to/da_leads/mcp_server.py"],
+          "env": {
+            "DALEADS_API_KEY": "dk_live_xxx"
+          }
+        }
+      }
+    }
+"""
+
+import os
+import json
+import httpx
+from mcp.server.fastmcp import FastMCP
+
+# Configuration
+API_KEY = os.environ.get("DALEADS_API_KEY", "")
+API_URL = "https://daleads.com.au/api"
+
+mcp = FastMCP(
+    "DA Leads",
+    instructions=(
+        "Search and analyze Australian development applications (DAs) across 330+ "
+        "councils, plus address-level Property Intelligence (planning, hazards, "
+        "environment, transport and scored risk components). Use search_das for "
+        "filtered listing, nearby_das for spatial queries, sql_query for custom "
+        "analytics, property_intelligence for a full address profile. No API key "
+        "yet? property_sample and property_flood_sample work keylessly, and "
+        "property_sandbox_addresses lists real addresses that never count "
+        "toward a key's quota."
+    ),
+)
+
+_client = None
+
+
+def _get_client() -> httpx.Client:
+    global _client
+    if _client is None:
+        headers = {"Authorization": f"Bearer {API_KEY}"} if API_KEY else {}
+        _client = httpx.Client(
+            base_url=API_URL,
+            headers=headers,
+            timeout=30,
+        )
+    return _client
+
+
+def _shape_response(resp: httpx.Response) -> dict:
+    # Surface the API's structured 4xx guidance (quota resets_at, plan gates,
+    # address-resolution hints) to the agent instead of a bare status exception.
+    if resp.status_code >= 400:
+        try:
+            detail = resp.json()
+        except ValueError:
+            detail = {"error": resp.text[:500]}
+        if not isinstance(detail, dict):
+            detail = {"error": detail}
+        return {"http_status": resp.status_code, **detail}
+    return resp.json()
+
+
+def _api_get(path: str, params: dict | None = None) -> dict:
+    return _shape_response(_get_client().get(path, params=params))
+
+
+def _api_post(path: str, body: dict) -> dict:
+    return _shape_response(_get_client().post(path, json=body))
+
+
+@mcp.tool()
+def search_das(
+    state: str | None = None,
+    council: str | None = None,
+    category: str | None = None,
+    suburb: str | None = None,
+    postcode: str | None = None,
+    since: str | None = None,
+    status_group: str | None = None,
+    is_residential: bool | None = None,
+    page: int = 1,
+    limit: int = 20,
+) -> str:
+    """Search development applications with filters.
+
+    Args:
+        state: Filter by state (NSW, VIC, QLD, SA, WA, TAS, NT, ACT)
+        council: Filter by council name (e.g. "City of Melbourne")
+        category: Filter by trade category (e.g. "Renovation / Extension", "Swimming Pool / Spa")
+        suburb: Filter by suburb name
+        postcode: Filter by exact postcode
+        since: Only show DAs lodged on or after this ISO date (YYYY-MM-DD)
+        status_group: Normalized status: pending, advertised, approved, rejected, or other
+        is_residential: Filter residential (true) or commercial (false)
+        page: Page number (default 1)
+        limit: Results per page (max 100)
+    """
+    params = {"page": page, "per_page": min(limit, 100)}
+    if state:
+        params["state"] = state
+    if council:
+        params["council"] = council
+    if category:
+        params["category"] = category
+    if suburb:
+        params["suburb"] = suburb
+    if postcode:
+        params["postcode"] = postcode
+    if since:
+        params["since"] = since
+    if status_group:
+        params["status_group"] = status_group
+    if is_residential is not None:
+        params["is_residential"] = is_residential
+    data = _api_get("/v1/das", params)
+    return json.dumps(data, indent=2)
+
+
+@mcp.tool()
+def get_da(da_id: int) -> str:
+    """Get full details of a specific development application by ID.
+
+    Args:
+        da_id: The DA record ID
+    """
+    data = _api_get(f"/v1/das/{da_id}")
+    return json.dumps(data, indent=2)
+
+
+@mcp.tool()
+def nearby_das(
+    lat: float,
+    lng: float,
+    radius_km: float = 5.0,
+    category: str | None = None,
+    since: str | None = None,
+    status_group: str | None = None,
+    page: int = 1,
+    limit: int = 20,
+) -> str:
+    """Find development applications near a location.
+
+    Args:
+        lat: Latitude
+        lng: Longitude
+        radius_km: Search radius in km (default 5, max 50)
+        category: Filter by trade category
+        since: Only show DAs lodged on or after this ISO date (YYYY-MM-DD)
+        status_group: Normalized status: pending, advertised, approved, rejected, or other
+        page: Page number (default 1)
+        limit: Results per page (max 100)
+    """
+    params = {
+        "lat": lat,
+        "lng": lng,
+        "radius_km": radius_km,
+        "page": page,
+        "per_page": min(limit, 100),
+    }
+    if category:
+        params["category"] = category
+    if since:
+        params["since"] = since
+    if status_group:
+        params["status_group"] = status_group
+    data = _api_get("/v1/das/nearby", params)
+    return json.dumps(data, indent=2)
+
+
+@mcp.tool()
+def list_categories() -> str:
+    """List all trade categories with record counts.
+
+    Returns categories like: Renovation / Extension, Swimming Pool / Spa,
+    Granny Flat / Secondary Dwelling, Demolition, etc.
+    """
+    data = _api_get("/v1/categories")
+    return json.dumps(data, indent=2)
+
+
+@mcp.tool()
+def list_councils(limit: int = 50) -> str:
+    """List councils with state, DA count, and last activity date.
+
+    Args:
+        limit: Max councils to return
+    """
+    data = _api_get("/v1/councils")
+    if isinstance(data.get("data"), list):
+        data["data"] = data["data"][:max(0, limit)]
+        data.setdefault("meta", {})["returned"] = len(data["data"])
+    return json.dumps(data, indent=2)
+
+
+@mcp.tool()
+def get_stats() -> str:
+    """Get overall DA statistics: total records, by state, by category, date range."""
+    data = _api_get("/v1/stats")
+    return json.dumps(data, indent=2)
+
+
+@mcp.tool()
+def sql_query(query: str, params: list[str] | None = None) -> str:
+    """Run a read-only SQL query against DA records. Pro plan only.
+
+    Query the 'das' table with columns: id, address, address_suburb,
+    address_postcode, council_name, council_reference, state, trade_category,
+    sub_category, application_type, is_residential, lodgement_date, status,
+    cost_of_development, decision_date, decision_status, on_notice_from,
+    on_notice_to, number_of_dwellings, lot_count, land_use, building_type,
+    storeys, latitude, longitude, data_source, date_fetched, documents,
+    info_url. Description and summary are deliberately unavailable because
+    council free text may contain personal contact details.
+
+    Max 1000 rows. 10 second timeout. SELECT only.
+
+    Args:
+        query: SQL SELECT query using table name 'das'
+        params: Optional parameters for %s placeholders
+    """
+    body = {"query": query}
+    if params:
+        body["params"] = params
+    data = _api_post("/v1/sql", body)
+    return json.dumps(data, indent=2)
+
+
+@mcp.tool()
+def property_intelligence(
+    address: str | None = None,
+    lat: float | None = None,
+    lng: float | None = None,
+    components: str | None = None,
+) -> str:
+    """Full property intelligence profile for one Australian address (or lat/lng point).
+
+    Returns planning (zones, overlays, heritage), hazards (flood, bushfire),
+    environment, transport, nearby DAs, points of interest and scored risk
+    components for the address. Requires an API key on a Property Intelligence
+    plan; each lookup counts toward the key's monthly quota, except the sandbox
+    addresses from property_sandbox_addresses which are never metered.
+    No key? Use property_sample for a complete keyless example first.
+
+    Args:
+        address: Free-text address, e.g. "34 Mary St Clayton VIC"
+        lat: Latitude (alternative to address)
+        lng: Longitude (alternative to address)
+        components: Optional comma-separated subset to return, e.g.
+            "scores.noise,hazards,das". Blocks: das, poi, planning, hazards,
+            environment, transport, utilities, administrative, public_housing,
+            scores.
+    """
+    if (lat is None) != (lng is None):
+        return json.dumps({"error": "pass both lat and lng, or use address"})
+    params: dict = {}
+    if address:
+        params["address"] = address
+    if lat is not None and lng is not None:
+        params["lat"] = lat
+        params["lng"] = lng
+    if components:
+        params["components"] = components
+    data = _api_get("/v1/property", params)
+    return json.dumps(data, indent=2)
+
+
+@mcp.tool()
+def property_sample() -> str:
+    """Complete real Property Intelligence response, no API key required.
+
+    Returns the canned production payload for 163 Grattan St, Carlton VIC
+    (heritage terrace with DA activity) so you can inspect the full response
+    shape before requesting a key.
+    """
+    data = _api_get("/v1/property/sample")
+    return json.dumps(data, indent=2)
+
+
+@mcp.tool()
+def property_flood_sample() -> str:
+    """Real flood score component example, no API key required.
+
+    Returns the production scores.flood block for a study-covered Rocklea QLD
+    point: official 1% AEP modelled depth, overlay status, terrain context
+    and provenance.
+    """
+    data = _api_get("/v1/property/sample/flood")
+    return json.dumps(data, indent=2)
+
+
+@mcp.tool()
+def property_sandbox_addresses() -> str:
+    """List sandbox addresses whose lookups never count toward your quota.
+
+    Twelve real addresses covering all eight states; use them with
+    property_intelligence to evaluate live responses for free on any
+    Property Intelligence key.
+    """
+    data = _api_get("/v1/property/sandbox")
+    return json.dumps(data, indent=2)
+
+
+def main() -> None:
+    """Run the DA Leads MCP server over stdio."""
+    mcp.run()
+
+
+if __name__ == "__main__":
+    main()

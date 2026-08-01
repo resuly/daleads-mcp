@@ -1,0 +1,20 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.resuly/daleads-mcp",
+  "description": "Australian development application and property intelligence data for AI agents.",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/resuly/daleads-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "daleads-mcp",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
