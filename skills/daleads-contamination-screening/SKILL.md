@@ -11,6 +11,8 @@ never substitute a suburb or locality centroid.
 
 If the response shape is unclear, call `property_contamination_sample` first.
 It is keyless and shows the screening-only `scores.contamination` contract.
+For field meanings and error/metering behavior, use the official focused guide
+at `https://daleads.com.au/api/v1/property/docs/contamination`.
 
 Before interpreting the result:
 

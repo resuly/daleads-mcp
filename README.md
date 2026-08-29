@@ -128,6 +128,8 @@ requests exactly `scores.contamination`, keeping official register status,
 historical use, groundwater, landfill and industrial proximity in their real
 semantic categories. It is not a raw register feed, clean-site certificate or
 Phase 1 assessment. A data gap or upstream error must never be read as clear.
+The focused human guide is at
+`https://daleads.com.au/api/v1/property/docs/contamination`.
 
 **`property_sample`** — Inspect the complete Property Intelligence response shape
 before you have a key. **No API key required.** No parameters. Returns the real
