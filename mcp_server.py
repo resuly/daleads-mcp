@@ -40,10 +40,15 @@ mcp = FastMCP(
         "Intelligence for linked applications and rights-gated lifecycle change polling. Use search_das for "
         "filtered listing, nearby_das for spatial queries, sql_query for custom "
         "analytics, search_projects for real projects, property_intelligence "
-        "for a full address profile, or "
-        "bushfire_screening for the focused commercial screening contract. "
-        "No API key yet? property_sample, property_flood_sample and "
-        "property_bushfire_sample work keylessly, and "
+        "for a full address profile, bushfire_screening for the focused "
+        "commercial screening contract, "
+        "property_core for score-free public-record context, suburb_signals "
+        "for SAL development activity, sa2_population_forecast for code-keyed "
+        "regional scenarios, or walkability_screening for the straight-line "
+        "amenity contract. No API key yet? property_sample, "
+        "property_core_sample, suburb_signals_sample, "
+        "sa2_population_forecast_sample, property_walkability_sample, "
+        "property_flood_sample and property_bushfire_sample work keylessly, and "
         "property_sandbox_addresses lists real addresses that never count "
         "toward a key's quota."
     ),
@@ -402,6 +407,137 @@ def property_intelligence(
 
 
 @mcp.tool()
+def property_core(
+    address: str | None = None,
+    lat: float | None = None,
+    lng: float | None = None,
+) -> str:
+    """Score-free Property Core context for one Australian property.
+
+    Returns resolved address/parcel identity, DA context, POI, planning,
+    hazards, environment, transport, utilities, administrative and public
+    housing facts through a closed v1 contract. It never returns modelled
+    scores or surfaces. The response carries coverage and a response-specific
+    source/licence inventory. Requires a complete Property Core entitlement.
+
+    Args:
+        address: Free-text property address (recommended)
+        lat: Latitude, supplied together with lng instead of address
+        lng: Longitude, supplied together with lat instead of address
+    """
+    if (lat is None) != (lng is None):
+        return json.dumps({"error": "pass both lat and lng, or use address"})
+    if not address and lat is None:
+        return json.dumps({"error": "pass an address or both lat and lng"})
+    params: dict = {}
+    if address:
+        params["address"] = address
+    if lat is not None and lng is not None:
+        params["lat"] = lat
+        params["lng"] = lng
+    return json.dumps(_api_get("/v1/property/core", params), indent=2)
+
+
+@mcp.tool()
+def find_suburbs(
+    query: str,
+    state: str | None = None,
+    limit: int = 20,
+) -> str:
+    """Resolve a suburb name to explicit ABS SAL codes.
+
+    Args:
+        query: Suburb-name prefix, e.g. "Carlton"
+        state: Optional state code to narrow repeated names
+        limit: Maximum matches, up to 100
+    """
+    params: dict = {"q": query, "per_page": min(max(limit, 1), 100)}
+    if state:
+        params["state"] = state
+    return json.dumps(_api_get("/v1/suburbs", params), indent=2)
+
+
+@mcp.tool()
+def find_sa2_regions(
+    query: str,
+    state: str | None = None,
+    limit: int = 20,
+) -> str:
+    """Resolve a regional name to explicit ASGS 2021 SA2 codes.
+
+    Args:
+        query: Exact or partial SA2 name
+        state: Optional state code
+        limit: Maximum matches, up to 50
+    """
+    params: dict = {"name": query, "limit": min(max(limit, 1), 50)}
+    if state:
+        params["state"] = state
+    return json.dumps(_api_get("/v1/regions/sa2", params), indent=2)
+
+
+@mcp.tool()
+def suburb_signals(sal_code: str) -> str:
+    """Development activity signals for one ABS SAL suburb.
+
+    Returns Census context and privacy-slim aggregate DA-record activity. The
+    result is not a canonical project count and never attaches an SA2 absolute
+    population forecast to the SAL by name.
+
+    Args:
+        sal_code: ABS SAL code such as SAL20495 for Carlton VIC
+    """
+    return json.dumps(_api_get(f"/v1/suburb-signals/{sal_code}"), indent=2)
+
+
+@mcp.tool()
+def sa2_population_forecast(sa2_code: str) -> str:
+    """Quality-gated population scenarios for one ASGS 2021 SA2.
+
+    Returns code-keyed historical ERP, model metadata and rolling-origin error
+    metrics. Established-region scenarios are Beta. High-growth and greenfield
+    future values remain withheld while the artifact has no DA dwelling
+    constraint; their history and validation evidence still return.
+
+    Args:
+        sa2_code: Nine-digit ASGS 2021 SA2 code
+    """
+    return json.dumps(
+        _api_get(f"/v1/regions/sa2/{sa2_code}/forecast"), indent=2)
+
+
+@mcp.tool()
+def walkability_screening(
+    address: str | None = None,
+    lat: float | None = None,
+    lng: float | None = None,
+) -> str:
+    """Amenity & Walkability Screening for one Australian property.
+
+    Requests exactly ``scores.walkability``. The method uses straight-line
+    metres to 24 amenity scenarios plus disclosed motorway, major-water and
+    regional slope adjustments. It is not a walking route, isochrone or travel
+    time. Read ``coverage`` before interpreting the score.
+
+    Args:
+        address: Free-text property address (recommended)
+        lat: Latitude, supplied together with lng instead of address
+        lng: Longitude, supplied together with lat instead of address
+    """
+    if (lat is None) != (lng is None):
+        return json.dumps({"error": "pass both lat and lng, or use address"})
+    if not address and lat is None:
+        return json.dumps({"error": "pass an address or both lat and lng"})
+    params: dict = {"components": "scores.walkability"}
+    if address:
+        params["address"] = address
+    if lat is not None and lng is not None:
+        params["lat"] = lat
+        params["lng"] = lng
+    return json.dumps(_api_get("/v1/property", params), indent=2)
+
+
+@mcp.tool()
 def bushfire_screening(
     address: str | None = None,
     lat: float | None = None,
@@ -446,6 +582,31 @@ def property_sample() -> str:
     """
     data = _api_get("/v1/property/sample")
     return json.dumps(data, indent=2)
+
+
+@mcp.tool()
+def property_core_sample() -> str:
+    """Real score-free Property Core v1 example, no API key required."""
+    return json.dumps(_api_get("/v1/property/sample/core"), indent=2)
+
+
+@mcp.tool()
+def suburb_signals_sample() -> str:
+    """Real Carlton SAL development-signals example, no API key required."""
+    return json.dumps(_api_get("/v1/suburb-signals/sample"), indent=2)
+
+
+@mcp.tool()
+def sa2_population_forecast_sample() -> str:
+    """Real Carlton SA2 forecast Beta example, no API key required."""
+    return json.dumps(_api_get("/v1/regions/sa2/forecast/sample"), indent=2)
+
+
+@mcp.tool()
+def property_walkability_sample() -> str:
+    """Real focused Walkability Screening v1 example, no API key required."""
+    return json.dumps(
+        _api_get("/v1/property/sample/walkability"), indent=2)
 
 
 @mcp.tool()

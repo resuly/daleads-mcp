@@ -1,0 +1,4 @@
+interface:
+  display_name: "DA Leads Suburb Signals"
+  short_description: "Analyse SAL activity and SA2 forecasts honestly"
+  default_prompt: "Use $daleads-suburb-signals to analyse this suburb activity or SA2 population forecast with its quality limits."

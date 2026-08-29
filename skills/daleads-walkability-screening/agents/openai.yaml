@@ -1,0 +1,4 @@
+interface:
+  display_name: "DA Leads Walkability Screening"
+  short_description: "Screen amenity proximity without claiming route time"
+  default_prompt: "Use $daleads-walkability-screening to assess amenity proximity and disclosed walkability barriers for this property."
