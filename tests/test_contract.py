@@ -1,7 +1,21 @@
 import json
+from pathlib import Path
 from unittest.mock import patch
 
 import mcp_server
+
+
+PROJECT_CONTRACT = json.loads(
+    (Path(__file__).parents[1] / "contracts" / "project-intelligence-v1.json")
+    .read_text(encoding="utf-8")
+)
+
+
+def _client_path(tool: str, project_uid: str | None = None) -> str:
+    path = PROJECT_CONTRACT["tools"][tool]["path"].removeprefix("/api")
+    if project_uid is not None:
+        path = path.replace("{project_uid}", project_uid)
+    return path
 
 
 def test_search_das_uses_current_api_parameters():
@@ -52,3 +66,76 @@ def test_list_councils_applies_limit_locally():
     get.assert_called_once_with("/v1/councils")
     assert result["data"] == [{"council": "A"}]
     assert result["meta"] == {"total": 2, "returned": 1}
+
+
+def test_project_contract_is_bound_to_one_official_key_and_endpoint():
+    assert mcp_server.API_URL == PROJECT_CONTRACT["api_base_url"]
+    assert PROJECT_CONTRACT["authentication"] == {
+        "environment_variable": "DALEADS_API_KEY",
+        "header": "Authorization: Bearer <key>",
+        "entitlement": "project_intelligence",
+    }
+
+
+def test_search_projects_matches_provider_contract():
+    with patch.object(mcp_server, "_api_get", return_value={"data": [], "meta": {}}) as get:
+        json.loads(mcp_server.search_projects(
+            q="Riverstone", state="NSW", stage="assessment",
+            project_type="residential", changed_since="2026-08-01T00:00:00Z",
+            page=2, limit=40,
+        ))
+
+    path, params = get.call_args.args
+    assert path == _client_path("search_projects")
+    assert set(params) == set(
+        PROJECT_CONTRACT["tools"]["search_projects"]["query"]
+    )
+    assert params["per_page"] == 40
+    assert "limit" not in params
+    assert "days" not in params
+
+
+def test_get_project_escapes_uid_as_one_path_segment():
+    with patch.object(mcp_server, "_api_get", return_value={"data": {}}) as get:
+        json.loads(mcp_server.get_project("nsw/hda 229407"))
+
+    get.assert_called_once_with(
+        _client_path("get_project", "nsw%2Fhda%20229407")
+    )
+
+
+def test_get_project_changes_matches_provider_contract():
+    with patch.object(mcp_server, "_api_get", return_value={"data": [], "meta": {}}) as get:
+        json.loads(mcp_server.get_project_changes(
+            "project-1", since="2026-08-01T00:00:00Z", cursor=17, limit=75
+        ))
+
+    path, params = get.call_args.args
+    assert path == _client_path("get_project_changes", "project-1")
+    assert set(params) == set(
+        PROJECT_CONTRACT["tools"]["get_project_changes"]["query"]
+    )
+    assert params["per_page"] == 75
+    assert "changed_since" not in params
+
+
+def test_nearby_projects_uses_radius_km_not_legacy_radius():
+    with patch.object(mcp_server, "_api_get", return_value={"data": [], "meta": {}}) as get:
+        json.loads(mcp_server.nearby_projects(
+            lat=-33.8688, lng=151.2093, radius_km=8,
+            stage="approved", project_type="mixed_use", page=3, limit=25,
+        ))
+
+    path, params = get.call_args.args
+    assert path == _client_path("nearby_projects")
+    assert set(params) == set(
+        PROJECT_CONTRACT["tools"]["nearby_projects"]["query"]
+    )
+    assert params["radius_km"] == 8
+    assert "radius" not in params
+
+
+def test_cursor_contract_distinguishes_checkpoint_from_page_continuation():
+    semantics = PROJECT_CONTRACT["cursor_semantics"]
+    assert semantics["durable_checkpoint"] == "meta.cursor"
+    assert semantics["page_continuation"] == "meta.next_cursor"
