@@ -4,7 +4,7 @@
 
 DA Leads MCP lets Claude, Cursor and other MCP clients query Australian development applications and address-level property intelligence through the [DA Leads API](https://daleads.com.au/api/).
 
-It exposes 11 tools for DA search, nearby applications, council and category lookups, read-only SQL analysis, property intelligence, keyless samples and sandbox addresses.
+It exposes 13 tools for DA search, nearby applications, council and category lookups, read-only SQL analysis, property intelligence, focused bushfire screening, keyless samples and sandbox addresses.
 
 ## Install
 
@@ -114,6 +114,14 @@ development applications, points of interest, scored risk components, and a
 Property Intelligence plan; each lookup counts against the monthly quota unless
 the address comes from `property_sandbox_addresses`.
 
+**`bushfire_screening`** — Focused commercial Bushfire Screening lookup.
+Parameters: `address` (recommended) or `lat` + `lng` together. It always requests
+exactly `scores.bushfire,hazards.bushfire`, returning subject identity, official
+overlay status, licensed hazard hits, modelled vegetation fuel, terrain, available
+fire history, coverage and caveats. The standard product does not include
+preliminary BAL and is not a certified assessment. Coordinate-only lookups are
+labelled as such and must not be treated as a building location.
+
 **`property_sample`** — Inspect the complete Property Intelligence response shape
 before you have a key. **No API key required.** No parameters. Returns the real
 production payload for 163 Grattan St, Carlton VIC (a heritage terrace with DA
@@ -123,6 +131,11 @@ activity), with every block present.
 **No API key required.** No parameters. Returns the production `scores.flood`
 block for a study-covered point in Rocklea QLD: official 1% AEP modelled depth,
 overlay status, terrain context, coverage notes and provenance.
+
+**`property_bushfire_sample`** — Inspect the standard Bushfire Screening contract.
+**No API key required.** No parameters. Returns a real Katoomba NSW focused
+sample with resolved subject identity, official/modelled evidence, coverage,
+attribution and an explicit marker that preliminary BAL is withheld.
 
 **`property_sandbox_addresses`** — List the addresses you can evaluate for free.
 **No API key required.** No parameters. Returns `{sandbox_addresses: [{address,

@@ -36,8 +36,10 @@ mcp = FastMCP(
         "councils, plus address-level Property Intelligence (planning, hazards, "
         "environment, transport and scored risk components). Use search_das for "
         "filtered listing, nearby_das for spatial queries, sql_query for custom "
-        "analytics, property_intelligence for a full address profile. No API key "
-        "yet? property_sample and property_flood_sample work keylessly, and "
+        "analytics, property_intelligence for a full address profile, or "
+        "bushfire_screening for the focused commercial screening contract. "
+        "No API key yet? property_sample, property_flood_sample and "
+        "property_bushfire_sample work keylessly, and "
         "property_sandbox_addresses lists real addresses that never count "
         "toward a key's quota."
     ),
@@ -277,6 +279,41 @@ def property_intelligence(
 
 
 @mcp.tool()
+def bushfire_screening(
+    address: str | None = None,
+    lat: float | None = None,
+    lng: float | None = None,
+) -> str:
+    """Focused property-level bushfire pre-screen for an Australian subject.
+
+    Returns the official bushfire overlay status and any licensed hazard hits,
+    plus modelled fuel, terrain, fire-history coverage, score and
+    source metadata. This standard product does not include preliminary BAL and
+    is not a certified assessment. Prefer an address: the response then states
+    whether it resolved onto a cadastral parcel. Coordinates are accepted for
+    portfolio triage but are labelled coordinate-only/on-parcel and must not be
+    treated as a building location.
+
+    Args:
+        address: Free-text property address (recommended)
+        lat: Latitude, supplied together with lng instead of address
+        lng: Longitude, supplied together with lat instead of address
+    """
+    if (lat is None) != (lng is None):
+        return json.dumps({"error": "pass both lat and lng, or use address"})
+    if not address and lat is None:
+        return json.dumps({"error": "pass an address or both lat and lng"})
+    params: dict = {"components": "scores.bushfire,hazards.bushfire"}
+    if address:
+        params["address"] = address
+    if lat is not None and lng is not None:
+        params["lat"] = lat
+        params["lng"] = lng
+    data = _api_get("/v1/property", params)
+    return json.dumps(data, indent=2)
+
+
+@mcp.tool()
 def property_sample() -> str:
     """Complete real Property Intelligence response, no API key required.
 
@@ -297,6 +334,18 @@ def property_flood_sample() -> str:
     and provenance.
     """
     data = _api_get("/v1/property/sample/flood")
+    return json.dumps(data, indent=2)
+
+
+@mcp.tool()
+def property_bushfire_sample() -> str:
+    """Real Bushfire Screening example, no API key required.
+
+    Returns the focused production contract for a bushfire-fringe address in
+    Katoomba NSW. It demonstrates subject identity, official/modelled status,
+    input coverage and the explicit exclusion of preliminary BAL.
+    """
+    data = _api_get("/v1/property/sample/bushfire")
     return json.dumps(data, indent=2)
 
 

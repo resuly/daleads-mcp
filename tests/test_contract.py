@@ -1,7 +1,22 @@
 import json
+import re
+from pathlib import Path
 from unittest.mock import patch
 
 import mcp_server
+
+
+def test_release_versions_are_one_contract():
+    root = Path(__file__).resolve().parents[1]
+    project_text = (root / "pyproject.toml").read_text(encoding="utf-8")
+    version_match = re.search(r'^version = "([^"]+)"$', project_text, re.MULTILINE)
+    assert version_match, "pyproject.toml has no single-line project version"
+    project_version = version_match.group(1)
+    registry = json.loads((root / "server.json").read_text(encoding="utf-8"))
+    assert registry["version"] == project_version
+    assert {package["version"] for package in registry["packages"]} == {
+        project_version,
+    }
 
 
 def test_search_das_uses_current_api_parameters():
@@ -52,3 +67,28 @@ def test_list_councils_applies_limit_locally():
     get.assert_called_once_with("/v1/councils")
     assert result["data"] == [{"council": "A"}]
     assert result["meta"] == {"total": 2, "returned": 1}
+
+
+def test_bushfire_screening_uses_closed_component_set():
+    with patch.object(mcp_server, "_api_get", return_value={"scores": {}}) as get:
+        json.loads(mcp_server.bushfire_screening(
+            address="15 Cliff Drive, Katoomba NSW 2780"))
+
+    get.assert_called_once_with("/v1/property", {
+        "address": "15 Cliff Drive, Katoomba NSW 2780",
+        "components": "scores.bushfire,hazards.bushfire",
+    })
+
+
+def test_bushfire_screening_rejects_ambiguous_coordinate_input_locally():
+    with patch.object(mcp_server, "_api_get") as get:
+        result = json.loads(mcp_server.bushfire_screening(lat=-33.7))
+    assert result["error"] == "pass both lat and lng, or use address"
+    get.assert_not_called()
+
+
+def test_property_bushfire_sample_uses_keyless_focused_route():
+    with patch.object(mcp_server, "_api_get", return_value={"meta": {"sample": True}}) as get:
+        result = json.loads(mcp_server.property_bushfire_sample())
+    get.assert_called_once_with("/v1/property/sample/bushfire")
+    assert result["meta"]["sample"] is True

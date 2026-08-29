@@ -1,0 +1,4 @@
+interface:
+  display_name: "DA Leads Bushfire Screening"
+  short_description: "Screen Australian properties for bushfire context"
+  default_prompt: "Use $daleads-bushfire-screening to screen this property and explain official mapping, modelled evidence, coverage gaps, and the appropriate next action."
