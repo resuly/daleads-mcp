@@ -209,6 +209,17 @@ def test_property_core_rejects_partial_coordinates_locally():
     get.assert_not_called()
 
 
+def test_property_core_rejects_blank_and_mixed_subjects_locally():
+    with patch.object(mcp_server, "_api_get") as get:
+        blank = json.loads(mcp_server.property_core(address="   "))
+        mixed = json.loads(mcp_server.property_core(
+            address="1 Wrong Street, Sydney NSW", lat=-37.8, lng=144.96))
+    assert blank["error"] == "pass an address or both lat and lng"
+    assert mixed["error"] == \
+        "pass either address or both lat and lng, not both"
+    get.assert_not_called()
+
+
 def test_suburb_signals_uses_sal_code_path():
     with patch.object(mcp_server, "_api_get", return_value={"data": {}}) as get:
         json.loads(mcp_server.suburb_signals("SAL20495"))
@@ -247,6 +258,17 @@ def test_walkability_rejects_missing_subject_locally():
     with patch.object(mcp_server, "_api_get") as get:
         result = json.loads(mcp_server.walkability_screening())
     assert result["error"] == "pass an address or both lat and lng"
+    get.assert_not_called()
+
+
+def test_walkability_rejects_blank_and_mixed_subjects_locally():
+    with patch.object(mcp_server, "_api_get") as get:
+        blank = json.loads(mcp_server.walkability_screening(address="   "))
+        mixed = json.loads(mcp_server.walkability_screening(
+            address="1 Wrong Street, Sydney NSW", lat=-37.8, lng=144.96))
+    assert blank["error"] == "pass an address or both lat and lng"
+    assert mixed["error"] == \
+        "pass either address or both lat and lng, not both"
     get.assert_not_called()
 
 

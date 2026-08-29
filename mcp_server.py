@@ -425,8 +425,13 @@ def property_core(
         lat: Latitude, supplied together with lng instead of address
         lng: Longitude, supplied together with lat instead of address
     """
+    address = address.strip() if isinstance(address, str) else address
     if (lat is None) != (lng is None):
         return json.dumps({"error": "pass both lat and lng, or use address"})
+    if address and lat is not None:
+        return json.dumps({
+            "error": "pass either address or both lat and lng, not both",
+        })
     if not address and lat is None:
         return json.dumps({"error": "pass an address or both lat and lng"})
     params: dict = {}
@@ -524,8 +529,13 @@ def walkability_screening(
         lat: Latitude, supplied together with lng instead of address
         lng: Longitude, supplied together with lat instead of address
     """
+    address = address.strip() if isinstance(address, str) else address
     if (lat is None) != (lng is None):
         return json.dumps({"error": "pass both lat and lng, or use address"})
+    if address and lat is not None:
+        return json.dumps({
+            "error": "pass either address or both lat and lng, not both",
+        })
     if not address and lat is None:
         return json.dumps({"error": "pass an address or both lat and lng"})
     params: dict = {"components": "scores.walkability"}
