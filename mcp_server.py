@@ -22,6 +22,8 @@ Usage:
 
 import os
 import json
+from urllib.parse import quote
+
 import httpx
 from mcp.server.fastmcp import FastMCP
 
@@ -34,9 +36,10 @@ mcp = FastMCP(
     instructions=(
         "Search and analyze Australian development applications (DAs) across 330+ "
         "councils, plus address-level Property Intelligence (planning, hazards, "
-        "environment, transport and scored risk components). Use search_das for "
+        "environment, transport and scored risk components), and canonical Project "
+        "Intelligence for linked applications and rights-gated lifecycle change polling. Use search_das for "
         "filtered listing, nearby_das for spatial queries, sql_query for custom "
-        "analytics, property_intelligence for a full address profile. No API key "
+        "analytics, search_projects for real projects, and property_intelligence for a full address profile. No API key "
         "yet? property_sample and property_flood_sample work keylessly, and "
         "property_sandbox_addresses lists real addresses that never count "
         "toward a key's quota."
@@ -78,6 +81,14 @@ def _api_get(path: str, params: dict | None = None) -> dict:
 
 def _api_post(path: str, body: dict) -> dict:
     return _shape_response(_get_client().post(path, json=body))
+
+
+def _project_path(project_uid: str, suffix: str = "") -> str:
+    """Build a canonical-project path without allowing path injection."""
+    project_uid = project_uid.strip()
+    if not project_uid:
+        raise ValueError("project_uid must not be empty")
+    return f"/v1/projects/{quote(project_uid, safe='')}{suffix}"
 
 
 @mcp.tool()
@@ -177,6 +188,117 @@ def nearby_das(
         params["status_group"] = status_group
     data = _api_get("/v1/das/nearby", params)
     return json.dumps(data, indent=2)
+
+
+@mcp.tool()
+def search_projects(
+    q: str | None = None,
+    state: str | None = None,
+    stage: str | None = None,
+    project_type: str | None = None,
+    changed_since: str | None = None,
+    page: int = 1,
+    limit: int = 20,
+) -> str:
+    """Search canonical development projects and their current lifecycle state.
+
+    Project Intelligence joins related applications and changes into one project.
+    The API only returns rights-cleared evidence and fields. Availability is
+    determined by the API key's server-side Project Intelligence entitlement.
+
+    Args:
+        q: Project name search, or an exact project_uid
+        state: Australian state or territory code
+        stage: Normalized lifecycle stage exposed by the Project API
+        project_type: Normalized project type exposed by the Project API
+        changed_since: Only projects changed since this ISO-8601 timestamp
+        page: Page number (default 1)
+        limit: Results per page (default 20, max 100)
+    """
+    params: dict = {"page": page, "per_page": min(limit, 100)}
+    for key, value in (
+        ("q", q),
+        ("state", state),
+        ("stage", stage),
+        ("project_type", project_type),
+        ("changed_since", changed_since),
+    ):
+        if value:
+            params[key] = value
+    return json.dumps(_api_get("/v1/projects", params), indent=2)
+
+
+@mcp.tool()
+def get_project(project_uid: str) -> str:
+    """Get one rights-cleared canonical project and its linked applications.
+
+    Args:
+        project_uid: Stable canonical project identifier from search_projects
+    """
+    return json.dumps(_api_get(_project_path(project_uid)), indent=2)
+
+
+@mcp.tool()
+def get_project_changes(
+    project_uid: str,
+    since: str | None = None,
+    cursor: int | None = None,
+    limit: int = 50,
+) -> str:
+    """Read redacted, rights-cleared event notifications for one project.
+
+    Persist ``meta.cursor`` after every response. ``meta.next_cursor`` is only
+    the immediate continuation when the current response has another page.
+
+    Args:
+        project_uid: Stable canonical project identifier
+        since: Optional ISO-8601 lower bound for the first request
+        cursor: Non-negative continuation cursor returned by the API
+        limit: Results per response (default 50, max 100)
+    """
+    params: dict = {"per_page": min(limit, 100)}
+    if since:
+        params["since"] = since
+    if cursor:
+        params["cursor"] = cursor
+    return json.dumps(
+        _api_get(_project_path(project_uid, "/changes"), params), indent=2
+    )
+
+
+@mcp.tool()
+def nearby_projects(
+    lat: float,
+    lng: float,
+    radius_km: float = 5.0,
+    stage: str | None = None,
+    project_type: str | None = None,
+    page: int = 1,
+    limit: int = 20,
+) -> str:
+    """Find canonical development projects near a WGS84 point.
+
+    Args:
+        lat: Latitude in WGS84 decimal degrees
+        lng: Longitude in WGS84 decimal degrees
+        radius_km: Search radius in kilometres (default 5, max 200)
+        stage: Optional normalized lifecycle stage
+        project_type: Optional normalized project type
+        page: Page number (default 1)
+        limit: Results per page (default 20, max 100)
+    """
+    params: dict = {
+        "lat": lat,
+        "lng": lng,
+        "radius_km": radius_km,
+        "page": page,
+        "per_page": min(limit, 100),
+    }
+    if stage:
+        params["stage"] = stage
+    if project_type:
+        params["project_type"] = project_type
+    return json.dumps(_api_get("/v1/projects/nearby", params), indent=2)
 
 
 @mcp.tool()

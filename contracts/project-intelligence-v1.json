@@ -1,0 +1,43 @@
+{
+  "contract_version": "project-intelligence-v1",
+  "api_base_url": "https://daleads.com.au/api",
+  "authentication": {
+    "environment_variable": "DALEADS_API_KEY",
+    "header": "Authorization: Bearer <key>",
+    "entitlement": "project_intelligence"
+  },
+  "response_envelope": {
+    "read": ["data", "meta"],
+    "error": ["http_status"],
+    "required_meta": ["contract_version"]
+  },
+  "tools": {
+    "search_projects": {
+      "method": "GET",
+      "path": "/api/v1/projects",
+      "query": ["q", "state", "stage", "project_type", "changed_since", "page", "per_page"]
+    },
+    "get_project": {
+      "method": "GET",
+      "path": "/api/v1/projects/{project_uid}",
+      "query": []
+    },
+    "get_project_changes": {
+      "method": "GET",
+      "path": "/api/v1/projects/{project_uid}/changes",
+      "query": ["since", "cursor", "per_page"]
+    },
+    "nearby_projects": {
+      "method": "GET",
+      "path": "/api/v1/projects/nearby",
+      "query": ["lat", "lng", "radius_km", "stage", "project_type", "page", "per_page"]
+    }
+  },
+  "cursor_semantics": {
+    "durable_checkpoint": "meta.cursor",
+    "page_continuation": "meta.next_cursor",
+    "rule": "Persist meta.cursor after every response. Use non-null meta.next_cursor only to fetch the next page immediately."
+  },
+  "detail_fields": ["project_uid", "name", "kind", "state", "status", "confidence", "updated_at", "location", "applications", "relations"],
+  "change_fields": ["cursor", "event_type", "observed_at", "redacted"]
+}

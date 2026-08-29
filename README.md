@@ -4,7 +4,9 @@
 
 DA Leads MCP lets Claude, Cursor and other MCP clients query Australian development applications and address-level property intelligence through the [DA Leads API](https://daleads.com.au/api/).
 
-It exposes 11 tools for DA search, nearby applications, council and category lookups, read-only SQL analysis, property intelligence, keyless samples and sandbox addresses.
+It exposes 15 tools for DA search, canonical project search and monitoring,
+nearby applications/projects, council and category lookups, read-only SQL
+analysis, property intelligence, keyless samples and sandbox addresses.
 
 ## Install
 
@@ -98,6 +100,37 @@ longitude, data_source, date_fetched, documents, info_url. Description and
 summary are deliberately unavailable here because council free text can contain
 personal contact details. SELECT only, capped at 1000 rows with a 10 second
 timeout. Returns `{columns: [...], rows: [[...], ...], row_count, truncated}`.
+
+### Project intelligence
+
+These tools use the same `DALEADS_API_KEY` as every other paid tool. The API
+enforces the key's `project_intelligence` entitlement and rights-cleared field
+projection; the MCP package does not maintain a second capability list.
+
+**`search_projects`** — Search canonical projects rather than independent DA
+records. Parameters: `q`, `state`, normalized `stage`, normalized `project_type`,
+`changed_since` (ISO-8601 timestamp), `page`, and `limit` (max 100). The client
+sends the provider's canonical `per_page` parameter. Returns a `{data, meta}`
+envelope with `contract_version: project-intelligence-v1`.
+
+**`get_project`** — Retrieve one canonical project. Parameter: `project_uid`
+(the stable identifier returned by `search_projects`). The current v1 response
+contains identity, normalized status, location, linked applications and project
+relations. Rights-gated fields are omitted rather than represented as coverage
+or conflict metadata.
+
+**`get_project_changes`** — Retrieve durable changes for one project. Parameters:
+`project_uid`, optional initial `since`, continuation `cursor`, and `limit`
+(max 100). Persist `meta.cursor` after every response. Use a non-null
+`meta.next_cursor` only to fetch the next page immediately. Change values remain
+redacted until field-level delivery provenance is available.
+
+**`nearby_projects`** — Search canonical projects around a WGS84 point. Parameters:
+`lat`, `lng`, `radius_km`, optional `stage` and `project_type`, `page`, and `limit`.
+
+The repository includes `skills/daleads-project-monitoring` for cursor-based
+polling. It is installed from the GitHub repository, not bundled inside the
+PyPI wheel.
 
 ### Property intelligence
 
