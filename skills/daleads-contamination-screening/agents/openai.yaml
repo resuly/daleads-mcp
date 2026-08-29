@@ -1,0 +1,4 @@
+interface:
+  display_name: "DA Leads Contamination Screening"
+  short_description: "Screen Australian properties for contamination evidence"
+  default_prompt: "Use $daleads-contamination-screening to screen this property, keep findings and context distinct, explain coverage gaps, and recommend the appropriate next action."

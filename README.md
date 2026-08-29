@@ -4,7 +4,7 @@
 
 DA Leads MCP lets Claude, Cursor and other MCP clients query Australian development applications and address-level property intelligence through the [DA Leads API](https://daleads.com.au/api/).
 
-It exposes 13 tools for DA search, nearby applications, council and category lookups, read-only SQL analysis, property intelligence, focused bushfire screening, keyless samples and sandbox addresses.
+It exposes 15 tools for DA search, nearby applications, council and category lookups, read-only SQL analysis, property intelligence, focused bushfire and contamination screening, keyless samples and sandbox addresses.
 
 ## Install
 
@@ -122,6 +122,13 @@ fire history, coverage and caveats. The standard product does not include
 preliminary BAL and is not a certified assessment. Coordinate-only lookups are
 labelled as such and must not be treated as a building location.
 
+**`contamination_screening`** — Focused commercial contamination evidence
+screen. Parameters: `address` (recommended) or `lat` + `lng` together. It
+requests exactly `scores.contamination`, keeping official register status,
+historical use, groundwater, landfill and industrial proximity in their real
+semantic categories. It is not a raw register feed, clean-site certificate or
+Phase 1 assessment. A data gap or upstream error must never be read as clear.
+
 **`property_sample`** — Inspect the complete Property Intelligence response shape
 before you have a key. **No API key required.** No parameters. Returns the real
 production payload for 163 Grattan St, Carlton VIC (a heritage terrace with DA
@@ -136,6 +143,11 @@ overlay status, terrain context, coverage notes and provenance.
 **No API key required.** No parameters. Returns a real Katoomba NSW focused
 sample with resolved subject identity, official/modelled evidence, coverage,
 attribution and an explicit marker that preliminary BAL is withheld.
+
+**`property_contamination_sample`** — Inspect the standard Contamination
+Screening contract. **No API key required.** No parameters. Returns a real
+Carlton VIC focused sample with subject identity, coverage states, allowlisted
+evidence, attribution and explicit raw-feed/clean-site exclusions.
 
 **`property_sandbox_addresses`** — List the addresses you can evaluate for free.
 **No API key required.** No parameters. Returns `{sandbox_addresses: [{address,

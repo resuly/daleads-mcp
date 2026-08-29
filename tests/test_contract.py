@@ -92,3 +92,28 @@ def test_property_bushfire_sample_uses_keyless_focused_route():
         result = json.loads(mcp_server.property_bushfire_sample())
     get.assert_called_once_with("/v1/property/sample/bushfire")
     assert result["meta"]["sample"] is True
+
+
+def test_contamination_screening_uses_closed_component_set():
+    with patch.object(mcp_server, "_api_get", return_value={"scores": {}}) as get:
+        json.loads(mcp_server.contamination_screening(
+            address="163 Grattan Street, Carlton VIC 3053"))
+
+    get.assert_called_once_with("/v1/property", {
+        "address": "163 Grattan Street, Carlton VIC 3053",
+        "components": "scores.contamination",
+    })
+
+
+def test_contamination_screening_rejects_ambiguous_coordinate_input_locally():
+    with patch.object(mcp_server, "_api_get") as get:
+        result = json.loads(mcp_server.contamination_screening(lng=144.96))
+    assert result["error"] == "pass both lat and lng, or use address"
+    get.assert_not_called()
+
+
+def test_property_contamination_sample_uses_keyless_focused_route():
+    with patch.object(mcp_server, "_api_get", return_value={"meta": {"sample": True}}) as get:
+        result = json.loads(mcp_server.property_contamination_sample())
+    get.assert_called_once_with("/v1/property/sample/contamination")
+    assert result["meta"]["sample"] is True

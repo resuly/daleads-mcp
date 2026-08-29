@@ -38,8 +38,9 @@ mcp = FastMCP(
         "filtered listing, nearby_das for spatial queries, sql_query for custom "
         "analytics, property_intelligence for a full address profile, or "
         "bushfire_screening for the focused commercial screening contract. "
-        "No API key yet? property_sample, property_flood_sample and "
-        "property_bushfire_sample work keylessly, and "
+        "No API key yet? property_sample, property_flood_sample, "
+        "property_bushfire_sample and property_contamination_sample work "
+        "keylessly, and "
         "property_sandbox_addresses lists real addresses that never count "
         "toward a key's quota."
     ),
@@ -314,6 +315,40 @@ def bushfire_screening(
 
 
 @mcp.tool()
+def contamination_screening(
+    address: str | None = None,
+    lat: float | None = None,
+    lng: float | None = None,
+) -> str:
+    """Focused contamination evidence screen for an Australian property.
+
+    Returns only ``scores.contamination``: official-register status,
+    allowlisted historical-use, groundwater, landfill and industrial evidence,
+    coverage, subject identity and caveats. It is not a raw register feed,
+    clean-site certificate or Phase 1 environmental site assessment. Prefer a
+    full address. Coordinate-only results are labelled and must not be treated
+    as a confirmed parcel or building location.
+
+    Args:
+        address: Free-text property address (recommended)
+        lat: Latitude, supplied together with lng instead of address
+        lng: Longitude, supplied together with lat instead of address
+    """
+    if (lat is None) != (lng is None):
+        return json.dumps({"error": "pass both lat and lng, or use address"})
+    if not address and lat is None:
+        return json.dumps({"error": "pass an address or both lat and lng"})
+    params: dict = {"components": "scores.contamination"}
+    if address:
+        params["address"] = address
+    if lat is not None and lng is not None:
+        params["lat"] = lat
+        params["lng"] = lng
+    data = _api_get("/v1/property", params)
+    return json.dumps(data, indent=2)
+
+
+@mcp.tool()
 def property_sample() -> str:
     """Complete real Property Intelligence response, no API key required.
 
@@ -346,6 +381,18 @@ def property_bushfire_sample() -> str:
     input coverage and the explicit exclusion of preliminary BAL.
     """
     data = _api_get("/v1/property/sample/bushfire")
+    return json.dumps(data, indent=2)
+
+
+@mcp.tool()
+def property_contamination_sample() -> str:
+    """Real Contamination Screening example, no API key required.
+
+    Returns the focused production-shaped contract for Carlton VIC, including
+    coverage states, subject identity, allowlisted evidence and explicit raw
+    feed/clean-site exclusions.
+    """
+    data = _api_get("/v1/property/sample/contamination")
     return json.dumps(data, indent=2)
 
 
