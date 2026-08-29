@@ -1,4 +1,4 @@
 interface:
   display_name: "DA Leads Project Monitoring"
   short_description: "Monitor canonical development projects and lifecycle changes"
-  default_prompt: "Use DA Leads Project Intelligence to find this project, explain its returned normalized status and linked applications, then poll redacted future changes with the durable cursor."
+  default_prompt: "Use DA Leads Project Intelligence to find this project, explain its returned normalized status and linked applications, then monitor redacted future changes with the durable cursor. Create a persistent callback watch only when I explicitly ask and provide a public HTTPS receiver."

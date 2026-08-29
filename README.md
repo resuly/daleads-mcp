@@ -128,8 +128,20 @@ redacted until field-level delivery provenance is available.
 **`nearby_projects`** — Search canonical projects around a WGS84 point. Parameters:
 `lat`, `lng`, `radius_km`, optional `stage` and `project_type`, `page`, and `limit`.
 
-The repository includes `skills/daleads-project-monitoring` for cursor-based
-polling. It is installed from the GitHub repository, not bundled inside the
+**`create_project_watch`** — Create or idempotently replay a persistent signed
+callback for future rights-cleared events on one `project_uid`. Parameters:
+`project_uid`, a public HTTPS `callback_url`, and a stable `idempotency_key`.
+This tool changes external state and returns the signing secret.
+
+**`list_project_watches`** — List watches owned by the current API key. Signing
+secrets are never returned by the list operation.
+
+**`deactivate_project_watch`** — Stop one owned watch by `watch_uid`. Delivery
+audit rows remain durable; receivers must deduplicate the stable callback
+`Idempotency-Key` header.
+
+The repository includes `skills/daleads-project-monitoring` for cursor polling
+and explicit callback management. It is installed from the GitHub repository, not bundled inside the
 PyPI wheel.
 
 ### Property intelligence

@@ -11,10 +11,13 @@ PROJECT_CONTRACT = json.loads(
 )
 
 
-def _client_path(tool: str, project_uid: str | None = None) -> str:
+def _client_path(tool: str, project_uid: str | None = None,
+                 watch_uid: str | None = None) -> str:
     path = PROJECT_CONTRACT["tools"][tool]["path"].removeprefix("/api")
     if project_uid is not None:
         path = path.replace("{project_uid}", project_uid)
+    if watch_uid is not None:
+        path = path.replace("{watch_uid}", watch_uid)
     return path
 
 
@@ -133,6 +136,30 @@ def test_nearby_projects_uses_radius_km_not_legacy_radius():
     )
     assert params["radius_km"] == 8
     assert "radius" not in params
+
+
+def test_create_project_watch_matches_provider_contract():
+    with patch.object(mcp_server, "_api_post", return_value={"data": {}}) as post:
+        json.loads(mcp_server.create_project_watch(
+            "project/one", "https://hooks.example.com/project", "watch-create-001",
+        ))
+    post.assert_called_once_with(
+        _client_path("create_project_watch", "project%2Fone"),
+        {"callback_url": "https://hooks.example.com/project",
+         "idempotency_key": "watch-create-001"},
+    )
+
+
+def test_list_and_deactivate_project_watches_match_provider_contract():
+    with patch.object(mcp_server, "_api_get", return_value={"data": []}) as get:
+        json.loads(mcp_server.list_project_watches())
+    get.assert_called_once_with(_client_path("list_project_watches"))
+
+    with patch.object(mcp_server, "_api_delete", return_value={"data": {}}) as delete:
+        json.loads(mcp_server.deactivate_project_watch("watch/one"))
+    delete.assert_called_once_with(
+        _client_path("deactivate_project_watch", watch_uid="watch%2Fone")
+    )
 
 
 def test_cursor_contract_distinguishes_checkpoint_from_page_continuation():

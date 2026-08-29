@@ -31,6 +31,22 @@
       "method": "GET",
       "path": "/api/v1/projects/nearby",
       "query": ["lat", "lng", "radius_km", "stage", "project_type", "page", "per_page"]
+    },
+    "create_project_watch": {
+      "method": "POST",
+      "path": "/api/v1/projects/{project_uid}/watch",
+      "query": [],
+      "body": ["callback_url", "idempotency_key"]
+    },
+    "list_project_watches": {
+      "method": "GET",
+      "path": "/api/v1/project-watches",
+      "query": []
+    },
+    "deactivate_project_watch": {
+      "method": "DELETE",
+      "path": "/api/v1/project-watches/{watch_uid}",
+      "query": []
     }
   },
   "cursor_semantics": {
