@@ -4,7 +4,7 @@
 
 DA Leads MCP lets Claude, Cursor and other MCP clients query Australian development applications and address-level property intelligence through the [DA Leads API](https://daleads.com.au/api/).
 
-It exposes 15 tools for DA search, nearby applications, council and category lookups, read-only SQL analysis, property intelligence, focused bushfire and contamination screening, keyless samples and sandbox addresses.
+It exposes 18 tools for DA search, nearby applications, council and category lookups, read-only SQL analysis, property intelligence, focused bushfire, contamination, neighbourhood-context and solar-resource screening, keyless samples and sandbox addresses.
 
 ## Install
 
@@ -131,6 +131,23 @@ Phase 1 assessment. A data gap or upstream error must never be read as clear.
 The focused human guide is at
 `https://daleads.com.au/api/v1/property/docs/contamination`.
 
+**`neighbourhood_context`** — Focused Neighbourhood Context Beta lookup.
+Parameters: `address` (recommended) or `lat` + `lng` together. It requests
+exactly `scores.heat_island,scores.view_quality`. Neighbourhood Heat keeps its
+approximately 1 km temperature separate from 10 m land-cover context and
+reports source vintage and borrowed-pixel status. The legacy `view_quality` key
+returns the public Landscape Openness product, including six factors,
+missing/partial coverage and explicit line-of-sight exclusions. It is not
+parcel temperature, live weather, indoor comfort, building energy use or a
+guaranteed view.
+
+**`solar_resource`** — Focused Solar Resource Developer Preview lookup.
+Parameters: `address` (recommended) or `lat` + `lng` together. It requests
+exactly `scores.solar` and returns regional open-horizon GHI/DNI/GTI, PVOUT,
+optimum tilt, per-field resolution, vintage, licence and attribution. It does
+not identify roof planes, usable area, building or tree shading, obstructions,
+tariffs, self-consumption or batteries and must not be used as rooftop design.
+
 **`property_sample`** — Inspect the complete Property Intelligence response shape
 before you have a key. **No API key required.** No parameters. Returns the real
 production payload for 163 Grattan St, Carlton VIC (a heritage terrace with DA
@@ -150,6 +167,12 @@ attribution and an explicit marker that preliminary BAL is withheld.
 Screening contract. **No API key required.** No parameters. Returns a real
 Carlton VIC focused sample with subject identity, coverage states, allowlisted
 evidence, attribution and explicit raw-feed/clean-site exclusions.
+
+**`property_context_sample`** — Inspect the coordinated Neighbourhood Context
+Beta and Solar Resource Developer Preview contract. **No API key required.** No
+parameters. Returns a real production-shaped Carlton response containing only
+Neighbourhood Heat, Landscape Openness and Solar Resource, with their legacy v1
+keys, measurement levels, sources, caveats and not-modelled boundaries.
 
 **`property_sandbox_addresses`** — List the addresses you can evaluate for free.
 **No API key required.** No parameters. Returns `{sandbox_addresses: [{address,

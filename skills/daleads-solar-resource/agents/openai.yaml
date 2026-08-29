@@ -1,0 +1,4 @@
+interface:
+  display_name: "DA Leads Solar Resource"
+  short_description: "Explain regional solar resource without rooftop overclaims"
+  default_prompt: "Use $daleads-solar-resource to benchmark this location, report each field's real scale and vintage, and separate regional resource from rooftop design."

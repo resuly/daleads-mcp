@@ -117,3 +117,79 @@ def test_property_contamination_sample_uses_keyless_focused_route():
         result = json.loads(mcp_server.property_contamination_sample())
     get.assert_called_once_with("/v1/property/sample/contamination")
     assert result["meta"]["sample"] is True
+
+
+def test_neighbourhood_context_uses_closed_component_set():
+    with patch.object(mcp_server, "_api_get", return_value={"scores": {}}) as get:
+        json.loads(mcp_server.neighbourhood_context(
+            address="163 Grattan Street, Carlton VIC 3053"))
+
+    get.assert_called_once_with("/v1/property", {
+        "address": "163 Grattan Street, Carlton VIC 3053",
+        "components": "scores.heat_island,scores.view_quality",
+    })
+
+
+def test_neighbourhood_context_rejects_ambiguous_coordinates_locally():
+    with patch.object(mcp_server, "_api_get") as get:
+        result = json.loads(mcp_server.neighbourhood_context(lat=-37.8))
+    assert result["error"] == "pass both lat and lng, or use address"
+    get.assert_not_called()
+
+
+def test_neighbourhood_context_rejects_mixed_subject_locally():
+    with patch.object(mcp_server, "_api_get") as get:
+        result = json.loads(mcp_server.neighbourhood_context(
+            address="163 Grattan Street, Carlton VIC 3053",
+            lat=-37.8,
+            lng=144.96,
+        ))
+    assert result["error"] == \
+        "pass either address or both lat and lng, not both"
+    get.assert_not_called()
+
+
+def test_solar_resource_uses_closed_component_set():
+    with patch.object(mcp_server, "_api_get", return_value={"scores": {}}) as get:
+        json.loads(mcp_server.solar_resource(lat=-37.8, lng=144.96))
+
+    get.assert_called_once_with("/v1/property", {
+        "lat": -37.8,
+        "lng": 144.96,
+        "components": "scores.solar",
+    })
+
+
+def test_solar_resource_requires_a_subject_before_network():
+    with patch.object(mcp_server, "_api_get") as get:
+        result = json.loads(mcp_server.solar_resource())
+    assert result["error"] == "pass an address or both lat and lng"
+    get.assert_not_called()
+
+
+def test_solar_resource_treats_blank_address_as_no_subject():
+    with patch.object(mcp_server, "_api_get") as get:
+        result = json.loads(mcp_server.solar_resource(address="   "))
+    assert result["error"] == "pass an address or both lat and lng"
+    get.assert_not_called()
+
+
+def test_solar_resource_rejects_mixed_subject_locally():
+    with patch.object(mcp_server, "_api_get") as get:
+        result = json.loads(mcp_server.solar_resource(
+            address="1 Wrong Street, Sydney NSW",
+            lat=-37.8,
+            lng=144.96,
+        ))
+    assert result["error"] == \
+        "pass either address or both lat and lng, not both"
+    get.assert_not_called()
+
+
+def test_property_context_sample_uses_keyless_focused_route():
+    with patch.object(mcp_server, "_api_get", return_value={
+        "meta": {"sample": True},
+    }) as get:
+        result = json.loads(mcp_server.property_context_sample())
+    get.assert_called_once_with("/v1/property/sample/context")
+    assert result["meta"]["sample"] is True

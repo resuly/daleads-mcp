@@ -1,0 +1,4 @@
+interface:
+  display_name: "DA Leads Neighbourhood Context"
+  short_description: "Explain heat and landscape context at Australian addresses"
+  default_prompt: "Use $daleads-neighbourhood-context to compare these addresses, preserve each measurement scale, explain degraded inputs, and state what needs deeper verification."
