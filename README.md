@@ -128,6 +128,9 @@ requests exactly `scores.contamination`, keeping official register status,
 historical use, groundwater, landfill and industrial proximity in their real
 semantic categories. It is not a raw register feed, clean-site certificate or
 Phase 1 assessment. A data gap or upstream error must never be read as clear.
+Official register checks are integrated for VIC, NSW and ACT. When coverage is
+incomplete, an optimistic 70-100 score is withheld as `null`; always read
+`score_status` before ranking properties.
 The focused human guide is at
 `https://daleads.com.au/api/v1/property/docs/contamination`.
 
