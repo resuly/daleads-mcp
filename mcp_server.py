@@ -48,7 +48,11 @@ mcp = FastMCP(
         "amenity contract. No API key yet? property_sample, "
         "property_core_sample, suburb_signals_sample, "
         "sa2_population_forecast_sample, property_walkability_sample, "
-        "property_flood_sample and property_bushfire_sample work keylessly, and "
+        "property_flood_sample and property_bushfire_sample work keylessly. "
+        "Use neighbourhood_context for Neighbourhood Heat plus Landscape "
+        "Openness, and solar_resource for regional open-horizon solar context. "
+        "property_context_sample demonstrates the coordinated heat, landscape "
+        "and solar contract, and "
         "property_sandbox_addresses lists real addresses that never count "
         "toward a key's quota."
     ),
@@ -583,6 +587,83 @@ def bushfire_screening(
 
 
 @mcp.tool()
+def neighbourhood_context(
+    address: str | None = None,
+    lat: float | None = None,
+    lng: float | None = None,
+) -> str:
+    """Focused Neighbourhood Heat and Landscape Openness context.
+
+    Returns exactly ``scores.heat_island`` and the compatible legacy key
+    ``scores.view_quality``. Heat separates approximately 1 km temperature
+    from 10 m land-cover context and reports mosaic vintage or borrowed-pixel
+    status. Landscape Openness reports six location factors, missing/partial
+    inputs and explicit line-of-sight exclusions. It is not parcel temperature,
+    live weather, indoor comfort, building energy use or a guaranteed view.
+
+    Args:
+        address: Free-text Australian property address (recommended)
+        lat: Latitude, supplied together with lng instead of address
+        lng: Longitude, supplied together with lat instead of address
+    """
+    address = address.strip() if isinstance(address, str) else address
+    if (lat is None) != (lng is None):
+        return json.dumps({"error": "pass both lat and lng, or use address"})
+    if address and lat is not None:
+        return json.dumps({
+            "error": "pass either address or both lat and lng, not both",
+        })
+    if not address and lat is None:
+        return json.dumps({"error": "pass an address or both lat and lng"})
+    params: dict = {
+        "components": "scores.heat_island,scores.view_quality",
+    }
+    if address:
+        params["address"] = address
+    if lat is not None and lng is not None:
+        params["lat"] = lat
+        params["lng"] = lng
+    return json.dumps(_api_get("/v1/property", params), indent=2)
+
+
+@mcp.tool()
+def solar_resource(
+    address: str | None = None,
+    lat: float | None = None,
+    lng: float | None = None,
+) -> str:
+    """Focused regional, open-horizon Solar Resource context.
+
+    Returns exactly ``scores.solar`` with GHI/DNI/GTI, PVOUT, optimum tilt,
+    field-level resolution, source vintage, licence and attribution. It has no
+    roof-plane, usable-area, building/tree shading, obstruction, tariff,
+    self-consumption or battery model and must not be presented as rooftop
+    qualification or design.
+
+    Args:
+        address: Free-text Australian property address (recommended)
+        lat: Latitude, supplied together with lng instead of address
+        lng: Longitude, supplied together with lat instead of address
+    """
+    address = address.strip() if isinstance(address, str) else address
+    if (lat is None) != (lng is None):
+        return json.dumps({"error": "pass both lat and lng, or use address"})
+    if address and lat is not None:
+        return json.dumps({
+            "error": "pass either address or both lat and lng, not both",
+        })
+    if not address and lat is None:
+        return json.dumps({"error": "pass an address or both lat and lng"})
+    params: dict = {"components": "scores.solar"}
+    if address:
+        params["address"] = address
+    if lat is not None and lng is not None:
+        params["lat"] = lat
+        params["lng"] = lng
+    return json.dumps(_api_get("/v1/property", params), indent=2)
+
+
+@mcp.tool()
 def property_sample() -> str:
     """Complete real Property Intelligence response, no API key required.
 
@@ -641,6 +722,17 @@ def property_bushfire_sample() -> str:
     """
     data = _api_get("/v1/property/sample/bushfire")
     return json.dumps(data, indent=2)
+
+
+@mcp.tool()
+def property_context_sample() -> str:
+    """Real Heat, Landscape and Solar context example, no API key required.
+
+    Returns one focused Carlton response containing Neighbourhood Heat,
+    Landscape Openness and Solar Resource, their legacy v1 keys, measurement
+    levels, sources, caveats and not-modelled boundaries.
+    """
+    return json.dumps(_api_get("/v1/property/sample/context"), indent=2)
 
 
 @mcp.tool()
