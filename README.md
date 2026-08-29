@@ -4,7 +4,7 @@
 
 DA Leads MCP lets Claude, Cursor and other MCP clients query Australian development applications and address-level property intelligence through the [DA Leads API](https://daleads.com.au/api/).
 
-It exposes 15 tools for DA search, nearby applications, council and category lookups, read-only SQL analysis, property intelligence, focused bushfire and contamination screening, keyless samples and sandbox addresses.
+It exposes 25 tools for DA search, nearby applications, council and category lookups, read-only SQL analysis, score-free Property Core, suburb and SA2 intelligence, focused property screening, keyless samples and sandbox addresses.
 
 ## Install
 
@@ -114,6 +114,37 @@ development applications, points of interest, scored risk components, and a
 Property Intelligence plan; each lookup counts against the monthly quota unless
 the address comes from `property_sandbox_addresses`.
 
+**`property_core`** — Closed score-free property context. Parameters: `address`
+(recommended) or `lat` + `lng`. Returns resolved address/parcel identity,
+development applications, POI, planning, hazards, environment, transport,
+utilities, administrative and public-housing facts, plus response-specific
+coverage and source obligations. It never returns scores, surfaces or unknown
+future blocks. The key must include the complete explicit Core component set.
+
+### Suburb and regional intelligence
+
+**`find_suburbs`** — Resolve a suburb-name prefix to ABS SAL codes before a
+signals call. Parameters: `query`, optional `state`, `limit` (max 100). Returns
+the existing licensed Census rows with `sal_code`; repeated names remain
+separate rather than being guessed.
+
+**`suburb_signals`** — Census context and privacy-slim development activity for
+one SAL code. Parameter: `sal_code`. Returns current/prior 12-month DA-record
+counts, momentum, status and dwelling publication coverage, category mix and a
+machine contract stating that project deduplication has not been applied. It
+never attaches an SA2 absolute population forecast to the SAL.
+
+**`find_sa2_regions`** — Resolve an exact or partial region name to ASGS 2021
+SA2 codes. Parameters: `query`, optional `state`, `limit` (max 50). Use the
+returned code with `sa2_population_forecast`; never infer it from a suburb name.
+
+**`sa2_population_forecast`** — Code-keyed regional population scenario Beta.
+Parameter: nine-digit `sa2_code`. Returns history, model/vintage, housing-
+constraint status and matching 1/3/5-year rolling-origin errors. Established
+SA2s include low/medium/high scenarios. High-growth and greenfield future values
+are withheld while the artifact has no DA dwelling constraint; withheld is not
+zero growth.
+
 **`bushfire_screening`** — Focused commercial Bushfire Screening lookup.
 Parameters: `address` (recommended) or `lat` + `lng` together. It always requests
 exactly `scores.bushfire,hazards.bushfire`, returning subject identity, official
@@ -131,10 +162,31 @@ Phase 1 assessment. A data gap or upstream error must never be read as clear.
 The focused human guide is at
 `https://daleads.com.au/api/v1/property/docs/contamination`.
 
+**`walkability_screening`** — Focused Amenity & Walkability Screening lookup.
+Parameters: `address` (recommended) or `lat` + `lng`. It requests exactly
+`scores.walkability`: straight-line metres to 24 amenity scenarios plus
+disclosed motorway, major-water and regional slope adjustments. It is not a
+walking route, isochrone or travel-time result. Read every `coverage` state and
+preserve `meta.amenity_sources` attribution when names or coordinates surface.
+
 **`property_sample`** — Inspect the complete Property Intelligence response shape
 before you have a key. **No API key required.** No parameters. Returns the real
 production payload for 163 Grattan St, Carlton VIC (a heritage terrace with DA
 activity), with every block present.
+
+**`property_core_sample`** — Inspect the closed score-free Property Core v1
+contract. **No API key required.** Returns a real Carlton response containing
+only the explicit Core fact blocks, coverage and source inventory.
+
+**`suburb_signals_sample`** — Inspect a real Carlton SAL development-signals
+Beta response. **No API key required.**
+
+**`sa2_population_forecast_sample`** — Inspect the Carlton SA2 forecast Beta,
+including matching rolling-origin error evidence. **No API key required.**
+
+**`property_walkability_sample`** — Inspect the focused Amenity & Walkability
+Screening contract for Carlton. **No API key required.** Distances are explicitly
+straight-line and no route time is supplied.
 
 **`property_flood_sample`** — Inspect one scored hazard component in detail.
 **No API key required.** No parameters. Returns the production `scores.flood`
