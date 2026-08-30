@@ -28,4 +28,3 @@
     "required": ["schema_version", "product", "subject_identity", "licensed_component", "intended_use", "regulatory_reliance", "clean_site_certificate", "professional_assessment_required", "raw_register_feed"]
   }
 }
-
