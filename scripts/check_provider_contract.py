@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Block an MCP release when its focused API contract differs from DA Leads."""
+"""Block an MCP release when its DA provider contracts differ."""
 
 from __future__ import annotations
 
@@ -8,31 +8,40 @@ import json
 from pathlib import Path
 
 
-CONTRACT_NAME = "focused-api-v1.json"
+CONTRACT_NAMES = (
+    "project-intelligence-v1.json",
+    "focused-api-v1.json",
+)
 
 
-def load_contract(repo: Path) -> dict:
-    path = repo.resolve() / "contracts" / CONTRACT_NAME
+def load_contract(repo: Path, name: str) -> dict:
+    path = repo.resolve() / "contracts" / name
     if not path.is_file():
-        raise FileNotFoundError(f"focused API contract missing: {path}")
+        raise FileNotFoundError(f"DA provider contract missing: {path}")
     document = json.loads(path.read_text(encoding="utf-8"))
-    if document.get("contract_version") != "focused-api-v1":
-        raise ValueError(f"unexpected focused API contract version in {path}")
+    expected = name.removesuffix(".json")
+    if document.get("contract_version") != expected:
+        raise ValueError(f"unexpected DA provider contract version in {path}")
     return document
 
 
 def compare(provider_repo: Path, consumer_repo: Path) -> dict:
-    provider = load_contract(provider_repo)
-    consumer = load_contract(consumer_repo)
-    if provider != consumer:
-        raise ValueError(
-            "focused-api-v1 provider/consumer contracts differ; release the "
-            "coordinated DA provider contract first"
-        )
+    results = []
+    for name in CONTRACT_NAMES:
+        provider = load_contract(provider_repo, name)
+        consumer = load_contract(consumer_repo, name)
+        if provider != consumer:
+            raise ValueError(
+                f"{name} provider/consumer contracts differ; release the "
+                "coordinated DA provider contract first"
+            )
+        results.append({
+            "contract_version": provider["contract_version"],
+            "tools": sorted(provider.get("tools", {})),
+        })
     return {
         "state": "ok",
-        "contract_version": provider["contract_version"],
-        "tools": sorted(provider["tools"]),
+        "contracts": results,
     }
 
 

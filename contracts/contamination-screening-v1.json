@@ -1,0 +1,30 @@
+{
+  "contract_version": "contamination-screening-v1",
+  "provider_sample_path": "/api/v1/property/sample/contamination",
+  "component": "scores.contamination",
+  "standalone_offer_state": "not_sellable",
+  "delivery_contract_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "schema_version": {"const": "contamination-screening-v1"},
+      "product": {"const": "Contamination Screening"},
+      "subject_identity": {"enum": ["resolved_address_on_parcel", "resolved_address_point", "coordinate_on_parcel", "coordinate_only"]},
+      "licensed_component": {"const": "scores.contamination"},
+      "intended_use": {"const": "property acquisition, portfolio and Phase 1 triage"},
+      "regulatory_reliance": {"const": "not_permitted"},
+      "clean_site_certificate": {"const": false},
+      "professional_assessment_required": {"const": true},
+      "raw_register_feed": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "included": {"const": false},
+          "note": {"const": "Only allowlisted evidence used by this screening result is delivered."}
+        },
+        "required": ["included", "note"]
+      }
+    },
+    "required": ["schema_version", "product", "subject_identity", "licensed_component", "intended_use", "regulatory_reliance", "clean_site_certificate", "professional_assessment_required", "raw_register_feed"]
+  }
+}

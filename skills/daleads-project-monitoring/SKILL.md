@@ -25,6 +25,16 @@ Use the tools in this sequence as the task requires:
    only to fetch another page immediately when it is non-null.
 5. Use `nearby_projects` only from a supplied or reliably resolved WGS84 point.
    State the radius; do not substitute a suburb centroid without saying so.
+6. Use `create_project_watch` only when the user explicitly wants persistent
+   callbacks and has supplied a public HTTPS receiver. Reuse one stable
+   `idempotency_key` when retrying the same creation. Save the signing secret
+   from the create response; `list_project_watches` intentionally omits it.
+7. Use `list_project_watches` to inspect registrations and
+   `deactivate_project_watch` to stop one. Deactivation does not erase its
+   delivery audit trail. It suppresses pending work but cannot recall an HTTPS
+   request already in flight; that attempt remains explicit in the audit.
+   Cursor polling remains the simpler default when the user has no callback
+   receiver.
 
 When interpreting a response:
 
@@ -36,6 +46,9 @@ When interpreting a response:
 - Never upgrade a candidate link or low-confidence association into a confirmed
   project relationship. If sources disagree, explain the conflict.
 - Do not infer freshness beyond the returned source/update timestamps.
+- Callback payloads remain redacted and receivers must deduplicate the stable
+  `Idempotency-Key` header. A callback is a notification to re-read the Project;
+  it is not permission to infer withheld change values.
 - Do not seek or expose natural-person applicant or owner details. Company and
   professional roles may be used only when the response marks them deliverable.
 

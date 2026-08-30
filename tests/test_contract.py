@@ -7,6 +7,7 @@ from unittest.mock import patch
 import mcp_server
 import pytest
 from scripts.check_provider_contract import compare as compare_provider_contract
+from scripts.check_contamination_contract import compare as compare_contamination_contract
 
 
 PROJECT_CONTRACT = json.loads(
@@ -18,11 +19,26 @@ FOCUSED_CONTRACT = json.loads(
     .read_text(encoding="utf-8")
 )
 
+CONTAMINATION_CONTRACT = json.loads(
+    (Path(__file__).parents[1] / "contracts/contamination-screening-v1.json")
+    .read_text(encoding="utf-8")
+)
 
-def _client_path(tool: str, project_uid: str | None = None) -> str:
+
+def _registered_contamination_tools() -> list[str]:
+    return sorted(
+        name for name in mcp_server.mcp._tool_manager._tools
+        if "contam" in name.casefold()
+    )
+
+
+def _client_path(tool: str, project_uid: str | None = None,
+                 watch_uid: str | None = None) -> str:
     path = PROJECT_CONTRACT["tools"][tool]["path"].removeprefix("/api")
     if project_uid is not None:
         path = path.replace("{project_uid}", project_uid)
+    if watch_uid is not None:
+        path = path.replace("{watch_uid}", watch_uid)
     return path
 
 
@@ -52,16 +68,27 @@ def test_release_gate_fails_when_provider_contract_drifts(tmp_path):
     provider = tmp_path / "provider"
     provider_contracts = provider / "contracts"
     provider_contracts.mkdir(parents=True)
-    source = json.loads((root / "contracts" / "focused-api-v1.json")
-                        .read_text(encoding="utf-8"))
-    (provider_contracts / "focused-api-v1.json").write_text(
-        json.dumps(source), encoding="utf-8")
+    for name in ("project-intelligence-v1.json", "focused-api-v1.json"):
+        (provider_contracts / name).write_bytes(
+            (root / "contracts" / name).read_bytes())
     assert compare_provider_contract(provider, root)["state"] == "ok"
 
+    source = json.loads((provider_contracts / "focused-api-v1.json")
+                        .read_text(encoding="utf-8"))
     source["tools"]["solar_resource"]["lifecycle"] = "ready"
     (provider_contracts / "focused-api-v1.json").write_text(
         json.dumps(source), encoding="utf-8")
     with pytest.raises(ValueError, match="provider/consumer contracts differ"):
+        compare_provider_contract(provider, root)
+
+    (provider_contracts / "focused-api-v1.json").write_bytes(
+        (root / "contracts" / "focused-api-v1.json").read_bytes())
+    project = json.loads((provider_contracts / "project-intelligence-v1.json")
+                         .read_text(encoding="utf-8"))
+    del project["tools"]["create_project_watch"]
+    (provider_contracts / "project-intelligence-v1.json").write_text(
+        json.dumps(project), encoding="utf-8")
+    with pytest.raises(ValueError, match="project-intelligence-v1"):
         compare_provider_contract(provider, root)
 
 
@@ -94,6 +121,8 @@ def test_readme_tool_count_and_new_skills_are_complete():
     assert registered_tools == {
         "search_das", "get_da", "nearby_das", "search_projects",
         "get_project", "get_project_changes", "nearby_projects",
+        "create_project_watch", "list_project_watches",
+        "deactivate_project_watch",
         "list_categories", "list_councils", "get_stats", "sql_query",
         "property_intelligence", "property_core", "find_suburbs",
         "find_sa2_regions", "suburb_signals", "sa2_population_forecast",
@@ -107,7 +136,7 @@ def test_readme_tool_count_and_new_skills_are_complete():
     }
     assert set(FOCUSED_CONTRACT["tools"]) <= registered_tools
     assert set(FOCUSED_CONTRACT["keyless_samples"]) <= registered_tools
-    assert "It exposes 32 tools" in readme
+    assert "It exposes 35 tools" in readme
     for name in (
         "daleads-bushfire-screening",
         "daleads-flood-screening",
@@ -232,6 +261,48 @@ def test_focused_lifecycle_and_standalone_exclusions_are_explicit():
     assert not (root / "skills" / "daleads-contamination-screening").exists()
 
 
+def test_contamination_contract_records_provider_only_fail_closed_surface():
+    assert CONTAMINATION_CONTRACT["contract_version"] == \
+        "contamination-screening-v1"
+    assert CONTAMINATION_CONTRACT["provider_sample_path"] == \
+        "/api/v1/property/sample/contamination"
+    assert CONTAMINATION_CONTRACT["component"] == "scores.contamination"
+    assert CONTAMINATION_CONTRACT["standalone_offer_state"] == "not_sellable"
+    required = CONTAMINATION_CONTRACT["delivery_contract_schema"]["required"]
+    assert "subject_identity" in required
+    assert "professional_assessment_required" in required
+    registered = mcp_server.mcp._tool_manager._tools
+    assert "property_intelligence" in registered
+    assert _registered_contamination_tools() == []
+
+
+@pytest.mark.parametrize("name", [
+    "contamination_screening", "property_contamination",
+    "property_contamination_sample",
+])
+def test_not_sellable_guard_detects_contamination_tool_name_variants(
+        monkeypatch, name):
+    registered = mcp_server.mcp._tool_manager._tools
+    monkeypatch.setitem(registered, name, object())
+    assert _registered_contamination_tools() == [name]
+
+
+def test_contamination_release_gate_fails_on_provider_drift(tmp_path):
+    root = Path(__file__).resolve().parents[1]
+    provider = tmp_path / "provider"
+    target = provider / "contracts"
+    target.mkdir(parents=True)
+    source = root / "contracts/contamination-screening-v1.json"
+    (target / source.name).write_bytes(source.read_bytes())
+    assert compare_contamination_contract(provider, root)["state"] == "ok"
+
+    payload = json.loads((target / source.name).read_text(encoding="utf-8"))
+    payload["delivery_contract_schema"]["required"].remove("subject_identity")
+    (target / source.name).write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="contracts differ"):
+        compare_contamination_contract(provider, root)
+
+
 def test_search_projects_matches_provider_contract():
     with patch.object(mcp_server, "_api_get", return_value={"data": [], "meta": {}}) as get:
         json.loads(mcp_server.search_projects(
@@ -300,6 +371,39 @@ def test_nearby_projects_uses_radius_km_not_legacy_radius():
     )
     assert params["radius_km"] == 8
     assert "radius" not in params
+
+
+def test_create_project_watch_matches_provider_contract():
+    with patch.object(mcp_server, "_api_post", return_value={"data": {}}) as post:
+        json.loads(mcp_server.create_project_watch(
+            "project/one", "https://hooks.example.com/project", "watch-create-001",
+        ))
+    post.assert_called_once_with(
+        _client_path("create_project_watch", "project%2Fone"),
+        {"callback_url": "https://hooks.example.com/project",
+         "idempotency_key": "watch-create-001"},
+    )
+
+
+def test_list_and_deactivate_project_watches_match_provider_contract():
+    with patch.object(mcp_server, "_api_get", return_value={"data": []}) as get:
+        json.loads(mcp_server.list_project_watches())
+    get.assert_called_once_with(_client_path("list_project_watches"))
+
+    with patch.object(mcp_server, "_api_delete", return_value={"data": {}}) as delete:
+        json.loads(mcp_server.deactivate_project_watch("watch/one"))
+    delete.assert_called_once_with(
+        _client_path("deactivate_project_watch", watch_uid="watch%2Fone")
+    )
+
+
+def test_project_watch_rejects_dot_path_segments_before_network():
+    with patch.object(mcp_server, "_api_delete") as delete:
+        for watch_uid in (".", "..", " .. "):
+            with pytest.raises(
+                    ValueError, match="must not be a dot path segment"):
+                mcp_server.deactivate_project_watch(watch_uid)
+    delete.assert_not_called()
 
 
 def test_cursor_contract_distinguishes_checkpoint_from_page_continuation():

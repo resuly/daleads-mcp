@@ -30,7 +30,8 @@ mcp = FastMCP(
         "Search and analyze Australian development applications (DAs) across 330+ "
         "councils, plus address-level Property Intelligence (planning, hazards, "
         "environment, transport and scored risk components), and canonical Project "
-        "Intelligence for linked applications and rights-gated lifecycle change polling. Use search_das for "
+        "Intelligence for linked applications, rights-gated lifecycle polling and "
+        "durable callback watches. Use search_das for "
         "filtered listing, nearby_das for spatial queries, sql_query for custom "
         "analytics, search_projects for real projects, property_intelligence "
         "for a full address profile, noise_screening and flood_screening for "
@@ -89,6 +90,10 @@ def _api_post(path: str, body: dict) -> dict:
     return _shape_response(_get_client().post(path, json=body))
 
 
+def _api_delete(path: str) -> dict:
+    return _shape_response(_get_client().delete(path))
+
+
 def _project_path(project_uid: str, suffix: str = "") -> str:
     """Build a canonical-project path without allowing path injection."""
     project_uid = project_uid.strip()
@@ -97,6 +102,15 @@ def _project_path(project_uid: str, suffix: str = "") -> str:
     if project_uid in {".", ".."}:
         raise ValueError("project_uid must not be a dot path segment")
     return f"/v1/projects/{quote(project_uid, safe='')}{suffix}"
+
+
+def _watch_path(watch_uid: str) -> str:
+    watch_uid = watch_uid.strip()
+    if not watch_uid:
+        raise ValueError("watch_uid must not be empty")
+    if watch_uid in {".", ".."}:
+        raise ValueError("watch_uid must not be a dot path segment")
+    return f"/v1/project-watches/{quote(watch_uid, safe='')}"
 
 
 @mcp.tool()
@@ -307,6 +321,45 @@ def nearby_projects(
     if project_type:
         params["project_type"] = project_type
     return json.dumps(_api_get("/v1/projects/nearby", params), indent=2)
+
+
+@mcp.tool()
+def create_project_watch(
+    project_uid: str,
+    callback_url: str,
+    idempotency_key: str,
+) -> str:
+    """Create or replay a durable callback watch for future Project events.
+
+    This is a persistent external side effect. The callback must be a public
+    HTTPS URL. Reuse the same idempotency_key for a retry of the same request.
+    Save the returned signing secret; list_project_watches never exposes it.
+
+    Args:
+        project_uid: Stable canonical project identifier
+        callback_url: Public HTTPS endpoint that accepts signed POST requests
+        idempotency_key: Stable 8-128 character retry key using letters, digits, . _ : -
+    """
+    body = {"callback_url": callback_url, "idempotency_key": idempotency_key}
+    return json.dumps(
+        _api_post(_project_path(project_uid, "/watch"), body), indent=2
+    )
+
+
+@mcp.tool()
+def list_project_watches() -> str:
+    """List this API key's active and inactive Project watches without secrets."""
+    return json.dumps(_api_get("/v1/project-watches"), indent=2)
+
+
+@mcp.tool()
+def deactivate_project_watch(watch_uid: str) -> str:
+    """Deactivate one Project watch owned by this API key.
+
+    Args:
+        watch_uid: Stable watch identifier returned by create_project_watch
+    """
+    return json.dumps(_api_delete(_watch_path(watch_uid)), indent=2)
 
 
 @mcp.tool()

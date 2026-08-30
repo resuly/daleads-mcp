@@ -112,6 +112,11 @@ jobs:
           )
           PY
 
+      - name: Verify Contamination provider and MCP contracts are identical
+        run: >-
+          python scripts/check_contamination_contract.py
+          --provider-repo .provider/da_leads
+
       - name: Install build verification tools
         run: >-
           python -m pip install
