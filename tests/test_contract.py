@@ -1,13 +1,19 @@
+import ast
 import json
 import re
 from pathlib import Path
 from unittest.mock import patch
 
 import mcp_server
+import pytest
 
 
 PROJECT_CONTRACT = json.loads(
     (Path(__file__).parents[1] / "contracts" / "project-intelligence-v1.json")
+    .read_text(encoding="utf-8")
+)
+FOCUSED_CONTRACT = json.loads(
+    (Path(__file__).parents[1] / "contracts" / "focused-api-v1.json")
     .read_text(encoding="utf-8")
 )
 
@@ -17,6 +23,14 @@ def _client_path(tool: str, project_uid: str | None = None) -> str:
     if project_uid is not None:
         path = path.replace("{project_uid}", project_uid)
     return path
+
+
+def _focused_path(tool: str) -> str:
+    return FOCUSED_CONTRACT["tools"][tool]["path"].removeprefix("/api")
+
+
+def _focused_components(tool: str) -> str:
+    return ",".join(FOCUSED_CONTRACT["tools"][tool]["closed_components"])
 
 
 def test_release_versions_are_one_contract():
@@ -36,15 +50,56 @@ def test_readme_tool_count_and_new_skills_are_complete():
     root = Path(__file__).resolve().parents[1]
     server_text = (root / "mcp_server.py").read_text(encoding="utf-8")
     readme = (root / "README.md").read_text(encoding="utf-8")
-    assert server_text.count("@mcp.tool()") == 25
-    assert "It exposes 25 tools" in readme
+    module = ast.parse(server_text)
+    registered_tools = {
+        node.name
+        for node in module.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and any(
+            isinstance(decorator, ast.Call)
+            and isinstance(decorator.func, ast.Attribute)
+            and decorator.func.attr == "tool"
+            for decorator in node.decorator_list
+        )
+    }
+    assert registered_tools == {
+        "search_das", "get_da", "nearby_das", "search_projects",
+        "get_project", "get_project_changes", "nearby_projects",
+        "list_categories", "list_councils", "get_stats", "sql_query",
+        "property_intelligence", "property_core", "find_suburbs",
+        "find_sa2_regions", "suburb_signals", "sa2_population_forecast",
+        "walkability_screening", "noise_screening", "flood_screening",
+        "bushfire_screening",
+        "neighbourhood_context", "solar_resource", "property_sample",
+        "property_core_sample", "suburb_signals_sample",
+        "sa2_population_forecast_sample", "property_walkability_sample",
+        "property_flood_sample", "property_bushfire_sample",
+        "property_context_sample", "property_sandbox_addresses",
+    }
+    assert set(FOCUSED_CONTRACT["tools"]) <= registered_tools
+    assert set(FOCUSED_CONTRACT["keyless_samples"]) <= registered_tools
+    assert "It exposes 32 tools" in readme
     for name in (
+        "daleads-bushfire-screening",
+        "daleads-flood-screening",
+        "daleads-neighbourhood-context",
+        "daleads-noise-screening",
+        "daleads-project-monitoring",
         "daleads-property-core",
+        "daleads-solar-resource",
         "daleads-suburb-signals",
         "daleads-walkability-screening",
     ):
-        skill = (root / "skills" / name / "SKILL.md").read_text(encoding="utf-8")
+        skill_root = root / "skills" / name
+        skill = (skill_root / "SKILL.md").read_text(encoding="utf-8")
+        interface = (skill_root / "agents" / "openai.yaml").read_text(
+            encoding="utf-8")
         assert "TODO" not in skill
+        assert f"${name}" in interface
+        for adapter_root in (".agents", ".claude"):
+            adapter = root / adapter_root / "skills" / name
+            assert adapter.is_symlink()
+            assert adapter.resolve() == skill_root.resolve()
 
 
 def test_search_das_uses_current_api_parameters():
@@ -99,11 +154,41 @@ def test_list_councils_applies_limit_locally():
 
 def test_project_contract_is_bound_to_one_official_key_and_endpoint():
     assert mcp_server.API_URL == PROJECT_CONTRACT["api_base_url"]
+    assert mcp_server.API_URL == FOCUSED_CONTRACT["api_base_url"]
     assert PROJECT_CONTRACT["authentication"] == {
         "environment_variable": "DALEADS_API_KEY",
         "header": "Authorization: Bearer <key>",
         "entitlement": "project_intelligence",
     }
+
+
+def test_focused_lifecycle_and_standalone_exclusions_are_explicit():
+    root = Path(__file__).resolve().parents[1]
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    lifecycle = {specification["lifecycle"]
+                 for specification in FOCUSED_CONTRACT["tools"].values()}
+    assert lifecycle <= set(FOCUSED_CONTRACT["lifecycle_vocabulary"])
+    assert FOCUSED_CONTRACT["tools"]["walkability_screening"][
+        "lifecycle"] == "pilot"
+    assert FOCUSED_CONTRACT["tools"]["solar_resource"][
+        "lifecycle"] == "developer_preview"
+    assert "Pilot" in (mcp_server.walkability_screening.__doc__ or "")
+    assert "Developer Preview" in (mcp_server.solar_resource.__doc__ or "")
+    assert "Walkability Screening Pilot" in readme
+    assert "Solar Resource Developer Preview" in readme
+    assert "Pilot" in (root / "skills" / "daleads-walkability-screening" /
+                       "SKILL.md").read_text(encoding="utf-8")
+    assert "Developer Preview" in (
+        root / "skills" / "daleads-solar-resource" / "SKILL.md"
+    ).read_text(encoding="utf-8")
+
+    exclusion = FOCUSED_CONTRACT["standalone_product_exclusions"][
+        "contamination"]
+    assert exclusion["offer_state"] == "not_sellable"
+    assert exclusion["focused_tool"] == "not_published"
+    assert "legacy_full_compatibility" in exclusion
+    assert "contamination_screening" not in FOCUSED_CONTRACT["tools"]
+    assert not (root / "skills" / "daleads-contamination-screening").exists()
 
 
 def test_search_projects_matches_provider_contract():
@@ -131,6 +216,18 @@ def test_get_project_escapes_uid_as_one_path_segment():
     get.assert_called_once_with(
         _client_path("get_project", "nsw%2Fhda%20229407")
     )
+
+
+def test_project_tools_reject_dot_path_segments_before_network():
+    with patch.object(mcp_server, "_api_get") as get:
+        for project_uid in (".", "..", " .. "):
+            with pytest.raises(
+                    ValueError, match="must not be a dot path segment"):
+                mcp_server.get_project(project_uid)
+            with pytest.raises(
+                    ValueError, match="must not be a dot path segment"):
+                mcp_server.get_project_changes(project_uid)
+    get.assert_not_called()
 
 
 def test_get_project_changes_matches_provider_contract():
@@ -175,23 +272,38 @@ def test_bushfire_screening_uses_closed_component_set():
         json.loads(mcp_server.bushfire_screening(
             address="15 Cliff Drive, Katoomba NSW 2780"))
 
-    get.assert_called_once_with("/v1/property", {
+    get.assert_called_once_with(_focused_path("bushfire_screening"), {
         "address": "15 Cliff Drive, Katoomba NSW 2780",
-        "components": "scores.bushfire,hazards.bushfire",
+        "components": _focused_components("bushfire_screening"),
     })
 
 
 def test_bushfire_screening_rejects_ambiguous_coordinate_input_locally():
     with patch.object(mcp_server, "_api_get") as get:
         result = json.loads(mcp_server.bushfire_screening(lat=-33.7))
-    assert result["error"] == "pass both lat and lng, or use address"
+    assert result["error"] == FOCUSED_CONTRACT["subject_contract"][
+        "partial_coordinates_error"]
+    get.assert_not_called()
+
+
+def test_bushfire_screening_rejects_blank_and_mixed_subjects_locally():
+    with patch.object(mcp_server, "_api_get") as get:
+        blank = json.loads(mcp_server.bushfire_screening(address="   "))
+        mixed = json.loads(mcp_server.bushfire_screening(
+            address="1 Wrong Street, Sydney NSW", lat=-37.8, lng=144.96))
+    assert blank["error"] == FOCUSED_CONTRACT["subject_contract"][
+        "missing_subject_error"]
+    assert mixed["error"] == FOCUSED_CONTRACT["subject_contract"][
+        "mixed_subject_error"]
     get.assert_not_called()
 
 
 def test_property_bushfire_sample_uses_keyless_focused_route():
     with patch.object(mcp_server, "_api_get", return_value={"meta": {"sample": True}}) as get:
         result = json.loads(mcp_server.property_bushfire_sample())
-    get.assert_called_once_with("/v1/property/sample/bushfire")
+    get.assert_called_once_with(
+        FOCUSED_CONTRACT["keyless_samples"]["property_bushfire_sample"]
+        .removeprefix("/api"))
     assert result["meta"]["sample"] is True
 
 
@@ -199,13 +311,32 @@ def test_property_core_uses_dedicated_closed_endpoint():
     with patch.object(mcp_server, "_api_get", return_value={"meta": {}}) as get:
         json.loads(mcp_server.property_core(address="163 Grattan St Carlton VIC"))
     get.assert_called_once_with(
-        "/v1/property/core", {"address": "163 Grattan St Carlton VIC"})
+        _focused_path("property_core"),
+        {"address": "163 Grattan St Carlton VIC"})
+
+
+def test_property_intelligence_rejects_invalid_subjects_before_network():
+    with patch.object(mcp_server, "_api_get") as get:
+        missing = json.loads(mcp_server.property_intelligence())
+        blank = json.loads(mcp_server.property_intelligence(address="   "))
+        partial = json.loads(mcp_server.property_intelligence(lat=-37.8))
+        mixed = json.loads(mcp_server.property_intelligence(
+            address="1 Wrong Street, Sydney NSW", lat=-37.8, lng=144.96))
+    assert missing["error"] == FOCUSED_CONTRACT["subject_contract"][
+        "missing_subject_error"]
+    assert blank == missing
+    assert partial["error"] == FOCUSED_CONTRACT["subject_contract"][
+        "partial_coordinates_error"]
+    assert mixed["error"] == FOCUSED_CONTRACT["subject_contract"][
+        "mixed_subject_error"]
+    get.assert_not_called()
 
 
 def test_property_core_rejects_partial_coordinates_locally():
     with patch.object(mcp_server, "_api_get") as get:
         result = json.loads(mcp_server.property_core(lat=-37.8))
-    assert result["error"] == "pass both lat and lng, or use address"
+    assert result["error"] == FOCUSED_CONTRACT["subject_contract"][
+        "partial_coordinates_error"]
     get.assert_not_called()
 
 
@@ -214,9 +345,10 @@ def test_property_core_rejects_blank_and_mixed_subjects_locally():
         blank = json.loads(mcp_server.property_core(address="   "))
         mixed = json.loads(mcp_server.property_core(
             address="1 Wrong Street, Sydney NSW", lat=-37.8, lng=144.96))
-    assert blank["error"] == "pass an address or both lat and lng"
-    assert mixed["error"] == \
-        "pass either address or both lat and lng, not both"
+    assert blank["error"] == FOCUSED_CONTRACT["subject_contract"][
+        "missing_subject_error"]
+    assert mixed["error"] == FOCUSED_CONTRACT["subject_contract"][
+        "mixed_subject_error"]
     get.assert_not_called()
 
 
@@ -225,16 +357,17 @@ def test_neighbourhood_context_uses_closed_component_set():
         json.loads(mcp_server.neighbourhood_context(
             address="163 Grattan Street, Carlton VIC 3053"))
 
-    get.assert_called_once_with("/v1/property", {
+    get.assert_called_once_with(_focused_path("neighbourhood_context"), {
         "address": "163 Grattan Street, Carlton VIC 3053",
-        "components": "scores.heat_island,scores.view_quality",
+        "components": _focused_components("neighbourhood_context"),
     })
 
 
 def test_neighbourhood_context_rejects_ambiguous_coordinates_locally():
     with patch.object(mcp_server, "_api_get") as get:
         result = json.loads(mcp_server.neighbourhood_context(lat=-37.8))
-    assert result["error"] == "pass both lat and lng, or use address"
+    assert result["error"] == FOCUSED_CONTRACT["subject_contract"][
+        "partial_coordinates_error"]
     get.assert_not_called()
 
 
@@ -245,49 +378,100 @@ def test_neighbourhood_context_rejects_mixed_subject_locally():
             lat=-37.8,
             lng=144.96,
         ))
-    assert result["error"] == \
-        "pass either address or both lat and lng, not both"
+    assert result["error"] == FOCUSED_CONTRACT["subject_contract"][
+        "mixed_subject_error"]
     get.assert_not_called()
 
 
 def test_suburb_signals_uses_sal_code_path():
     with patch.object(mcp_server, "_api_get", return_value={"data": {}}) as get:
         json.loads(mcp_server.suburb_signals("SAL20495"))
-    get.assert_called_once_with("/v1/suburb-signals/SAL20495")
+    get.assert_called_once_with(
+        _focused_path("suburb_signals").replace("{sal_code}", "SAL20495"))
+
+
+def test_geography_code_tools_reject_path_traversal_before_network():
+    with patch.object(mcp_server, "_api_get") as get:
+        bad_sal = json.loads(mcp_server.suburb_signals(
+            "../property/sample"))
+        bad_sa2 = json.loads(mcp_server.sa2_population_forecast(
+            "../../../terms"))
+    assert bad_sal["error"] == FOCUSED_CONTRACT["tools"][
+        "suburb_signals"]["path_parameter"]["error"]
+    assert bad_sa2["error"] == FOCUSED_CONTRACT["tools"][
+        "sa2_population_forecast"]["path_parameter"]["error"]
+    get.assert_not_called()
 
 
 def test_suburb_and_sa2_resolvers_use_explicit_geography_catalogs():
     with patch.object(mcp_server, "_api_get", return_value={"data": []}) as get:
         json.loads(mcp_server.find_suburbs("Carlton", state="VIC", limit=5))
     get.assert_called_once_with(
-        "/v1/suburbs", {"q": "Carlton", "per_page": 5, "state": "VIC"})
+        _focused_path("find_suburbs"),
+        {"q": "Carlton", "per_page": 5, "state": "VIC"})
 
     with patch.object(mcp_server, "_api_get", return_value={"data": []}) as get:
         json.loads(mcp_server.find_sa2_regions("Carlton", state="VIC", limit=5))
     get.assert_called_once_with(
-        "/v1/regions/sa2", {"name": "Carlton", "limit": 5, "state": "VIC"})
+        _focused_path("find_sa2_regions"),
+        {"name": "Carlton", "limit": 5, "state": "VIC"})
 
 
 def test_sa2_forecast_uses_code_keyed_path():
     with patch.object(mcp_server, "_api_get", return_value={"data": {}}) as get:
         json.loads(mcp_server.sa2_population_forecast("206041117"))
-    get.assert_called_once_with("/v1/regions/sa2/206041117/forecast")
+    get.assert_called_once_with(
+        _focused_path("sa2_population_forecast").replace(
+            "{sa2_code}", "206041117"))
 
 
 def test_walkability_screening_uses_closed_component():
     with patch.object(mcp_server, "_api_get", return_value={"scores": {}}) as get:
         json.loads(mcp_server.walkability_screening(
             address="163 Grattan St Carlton VIC"))
-    get.assert_called_once_with("/v1/property", {
+    get.assert_called_once_with(_focused_path("walkability_screening"), {
         "address": "163 Grattan St Carlton VIC",
-        "components": "scores.walkability",
+        "components": _focused_components("walkability_screening"),
     })
+
+
+def test_ready_noise_and_flood_tools_use_closed_component_sets():
+    cases = (
+        (mcp_server.noise_screening, "noise_screening"),
+        (mcp_server.flood_screening, "flood_screening"),
+    )
+    for function, tool in cases:
+        with patch.object(mcp_server, "_api_get", return_value={
+                "scores": {}}) as get:
+            json.loads(function(address="163 Grattan St Carlton VIC"))
+        get.assert_called_once_with(_focused_path(tool), {
+            "address": "163 Grattan St Carlton VIC",
+            "components": _focused_components(tool),
+        })
+
+
+def test_all_closed_property_tools_reject_mixed_subjects_before_network():
+    tool_names = (
+        "noise_screening", "flood_screening", "walkability_screening",
+        "bushfire_screening", "neighbourhood_context", "solar_resource",
+    )
+    for tool_name in tool_names:
+        with patch.object(mcp_server, "_api_get") as get:
+            result = json.loads(getattr(mcp_server, tool_name)(
+                address="1 Wrong Street, Sydney NSW",
+                lat=-37.8,
+                lng=144.96,
+            ))
+        assert result["error"] == FOCUSED_CONTRACT["subject_contract"][
+            "mixed_subject_error"]
+        get.assert_not_called()
 
 
 def test_walkability_rejects_missing_subject_locally():
     with patch.object(mcp_server, "_api_get") as get:
         result = json.loads(mcp_server.walkability_screening())
-    assert result["error"] == "pass an address or both lat and lng"
+    assert result["error"] == FOCUSED_CONTRACT["subject_contract"][
+        "missing_subject_error"]
     get.assert_not_called()
 
 
@@ -295,17 +479,18 @@ def test_solar_resource_uses_closed_component_set():
     with patch.object(mcp_server, "_api_get", return_value={"scores": {}}) as get:
         json.loads(mcp_server.solar_resource(lat=-37.8, lng=144.96))
 
-    get.assert_called_once_with("/v1/property", {
+    get.assert_called_once_with(_focused_path("solar_resource"), {
         "lat": -37.8,
         "lng": 144.96,
-        "components": "scores.solar",
+        "components": _focused_components("solar_resource"),
     })
 
 
 def test_solar_resource_requires_a_subject_before_network():
     with patch.object(mcp_server, "_api_get") as get:
         result = json.loads(mcp_server.solar_resource())
-    assert result["error"] == "pass an address or both lat and lng"
+    assert result["error"] == FOCUSED_CONTRACT["subject_contract"][
+        "missing_subject_error"]
     get.assert_not_called()
 
 
@@ -314,16 +499,18 @@ def test_walkability_rejects_blank_and_mixed_subjects_locally():
         blank = json.loads(mcp_server.walkability_screening(address="   "))
         mixed = json.loads(mcp_server.walkability_screening(
             address="1 Wrong Street, Sydney NSW", lat=-37.8, lng=144.96))
-    assert blank["error"] == "pass an address or both lat and lng"
-    assert mixed["error"] == \
-        "pass either address or both lat and lng, not both"
+    assert blank["error"] == FOCUSED_CONTRACT["subject_contract"][
+        "missing_subject_error"]
+    assert mixed["error"] == FOCUSED_CONTRACT["subject_contract"][
+        "mixed_subject_error"]
     get.assert_not_called()
 
 
 def test_solar_resource_treats_blank_address_as_no_subject():
     with patch.object(mcp_server, "_api_get") as get:
         result = json.loads(mcp_server.solar_resource(address="   "))
-    assert result["error"] == "pass an address or both lat and lng"
+    assert result["error"] == FOCUSED_CONTRACT["subject_contract"][
+        "missing_subject_error"]
     get.assert_not_called()
 
 
@@ -334,24 +521,18 @@ def test_solar_resource_rejects_mixed_subject_locally():
             lat=-37.8,
             lng=144.96,
         ))
-    assert result["error"] == \
-        "pass either address or both lat and lng, not both"
+    assert result["error"] == FOCUSED_CONTRACT["subject_contract"][
+        "mixed_subject_error"]
     get.assert_not_called()
 
 
-def test_new_keyless_samples_use_focused_routes():
-    cases = (
-        (mcp_server.property_core_sample, "/v1/property/sample/core"),
-        (mcp_server.suburb_signals_sample, "/v1/suburb-signals/sample"),
-        (mcp_server.sa2_population_forecast_sample,
-         "/v1/regions/sa2/forecast/sample"),
-        (mcp_server.property_walkability_sample,
-         "/v1/property/sample/walkability"),
-    )
-    for function, path in cases:
+def test_all_keyless_samples_use_focused_contract_routes():
+    for sample_tool, contract_path in FOCUSED_CONTRACT[
+            "keyless_samples"].items():
+        function = getattr(mcp_server, sample_tool)
         with patch.object(mcp_server, "_api_get", return_value={"ok": True}) as get:
             assert json.loads(function()) == {"ok": True}
-        get.assert_called_once_with(path)
+        get.assert_called_once_with(contract_path.removeprefix("/api"))
 
 
 def test_property_context_sample_uses_keyless_focused_route():
@@ -359,5 +540,7 @@ def test_property_context_sample_uses_keyless_focused_route():
         "meta": {"sample": True},
     }) as get:
         result = json.loads(mcp_server.property_context_sample())
-    get.assert_called_once_with("/v1/property/sample/context")
+    get.assert_called_once_with(
+        FOCUSED_CONTRACT["keyless_samples"]["property_context_sample"]
+        .removeprefix("/api"))
     assert result["meta"]["sample"] is True

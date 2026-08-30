@@ -1,0 +1,4 @@
+interface:
+  display_name: "DA Leads Noise Screening"
+  short_description: "Explain modelled property noise without compliance claims"
+  default_prompt: "Use $daleads-noise-screening to screen this property, explain the road, rail and aircraft evidence, and preserve validation and coverage limits."

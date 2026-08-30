@@ -6,22 +6,15 @@ Usage:
     # Run directly
     python mcp_server.py
 
-    # Claude Code config (~/.claude/mcp.json):
-    {
-      "mcpServers": {
-        "da-leads": {
-          "command": "python",
-          "args": ["/path/to/da_leads/mcp_server.py"],
-          "env": {
-            "DALEADS_API_KEY": "dk_live_xxx"
-          }
-        }
-      }
-    }
+    # Claude Code project config (keyless samples work without an API key):
+    claude mcp add --scope project da-leads -- uvx daleads-mcp
+
+    # Paid tools read DALEADS_API_KEY from the Claude Code process environment.
 """
 
-import os
 import json
+import os
+import re
 from urllib.parse import quote
 
 import httpx
@@ -40,7 +33,8 @@ mcp = FastMCP(
         "Intelligence for linked applications and rights-gated lifecycle change polling. Use search_das for "
         "filtered listing, nearby_das for spatial queries, sql_query for custom "
         "analytics, search_projects for real projects, property_intelligence "
-        "for a full address profile, bushfire_screening for the focused "
+        "for a full address profile, noise_screening and flood_screening for "
+        "the Ready focused modules, bushfire_screening for its focused "
         "commercial screening contract, "
         "property_core for score-free public-record context, suburb_signals "
         "for SAL development activity, sa2_population_forecast for code-keyed "
@@ -100,6 +94,8 @@ def _project_path(project_uid: str, suffix: str = "") -> str:
     project_uid = project_uid.strip()
     if not project_uid:
         raise ValueError("project_uid must not be empty")
+    if project_uid in {".", ".."}:
+        raise ValueError("project_uid must not be a dot path segment")
     return f"/v1/projects/{quote(project_uid, safe='')}{suffix}"
 
 
@@ -396,8 +392,15 @@ def property_intelligence(
             environment, transport, utilities, administrative, public_housing,
             scores.
     """
+    address = address.strip() if isinstance(address, str) else address
     if (lat is None) != (lng is None):
         return json.dumps({"error": "pass both lat and lng, or use address"})
+    if address and lat is not None:
+        return json.dumps({
+            "error": "pass either address or both lat and lng, not both",
+        })
+    if not address and lat is None:
+        return json.dumps({"error": "pass an address or both lat and lng"})
     params: dict = {}
     if address:
         params["address"] = address
@@ -496,6 +499,11 @@ def suburb_signals(sal_code: str) -> str:
     Args:
         sal_code: ABS SAL code such as SAL20495 for Carlton VIC
     """
+    sal_code = sal_code.strip() if isinstance(sal_code, str) else ""
+    if re.fullmatch(r"SAL[0-9]{5}", sal_code) is None:
+        return json.dumps({
+            "error": "invalid sal_code: expected SAL followed by five digits",
+        })
     return json.dumps(_api_get(f"/v1/suburb-signals/{sal_code}"), indent=2)
 
 
@@ -511,6 +519,11 @@ def sa2_population_forecast(sa2_code: str) -> str:
     Args:
         sa2_code: Nine-digit ASGS 2021 SA2 code
     """
+    sa2_code = sa2_code.strip() if isinstance(sa2_code, str) else ""
+    if re.fullmatch(r"[0-9]{9}", sa2_code) is None:
+        return json.dumps({
+            "error": "invalid sa2_code: expected exactly nine digits",
+        })
     return json.dumps(
         _api_get(f"/v1/regions/sa2/{sa2_code}/forecast"), indent=2)
 
@@ -521,7 +534,7 @@ def walkability_screening(
     lat: float | None = None,
     lng: float | None = None,
 ) -> str:
-    """Amenity & Walkability Screening for one Australian property.
+    """Amenity & Walkability Screening Pilot for one Australian property.
 
     Requests exactly ``scores.walkability``. The method uses straight-line
     metres to 24 amenity scenarios plus disclosed motorway, major-water and
@@ -552,6 +565,82 @@ def walkability_screening(
 
 
 @mcp.tool()
+def noise_screening(
+    address: str | None = None,
+    lat: float | None = None,
+    lng: float | None = None,
+) -> str:
+    """Focused road, rail and aircraft Noise Intelligence screening.
+
+    Requests exactly ``scores.noise`` and ``scores.aircraft_noise``. The result
+    is a modelled property-screening estimate with source context, facade
+    sectors, confidence range and state-specific measured validation where
+    available. It is not an acoustic compliance assessment or site measurement.
+
+    Args:
+        address: Free-text property address (recommended)
+        lat: Latitude, supplied together with lng instead of address
+        lng: Longitude, supplied together with lat instead of address
+    """
+    address = address.strip() if isinstance(address, str) else address
+    if (lat is None) != (lng is None):
+        return json.dumps({"error": "pass both lat and lng, or use address"})
+    if address and lat is not None:
+        return json.dumps({
+            "error": "pass either address or both lat and lng, not both",
+        })
+    if not address and lat is None:
+        return json.dumps({"error": "pass an address or both lat and lng"})
+    params: dict = {
+        "components": "scores.noise,scores.aircraft_noise",
+    }
+    if address:
+        params["address"] = address
+    if lat is not None and lng is not None:
+        params["lat"] = lat
+        params["lng"] = lng
+    return json.dumps(_api_get("/v1/property", params), indent=2)
+
+
+@mcp.tool()
+def flood_screening(
+    address: str | None = None,
+    lat: float | None = None,
+    lng: float | None = None,
+) -> str:
+    """Focused national Flood Intelligence screening for one property.
+
+    Requests exactly ``scores.flood`` and ``hazards.flood``. Keep the modelled
+    screening score, official mapped evidence and study-specific depth separate.
+    Missing official depth means the current study library does not cover the
+    point; it is not zero depth or proof of no flood risk.
+
+    Args:
+        address: Free-text property address (recommended)
+        lat: Latitude, supplied together with lng instead of address
+        lng: Longitude, supplied together with lat instead of address
+    """
+    address = address.strip() if isinstance(address, str) else address
+    if (lat is None) != (lng is None):
+        return json.dumps({"error": "pass both lat and lng, or use address"})
+    if address and lat is not None:
+        return json.dumps({
+            "error": "pass either address or both lat and lng, not both",
+        })
+    if not address and lat is None:
+        return json.dumps({"error": "pass an address or both lat and lng"})
+    params: dict = {
+        "components": "scores.flood,hazards.flood",
+    }
+    if address:
+        params["address"] = address
+    if lat is not None and lng is not None:
+        params["lat"] = lat
+        params["lng"] = lng
+    return json.dumps(_api_get("/v1/property", params), indent=2)
+
+
+@mcp.tool()
 def bushfire_screening(
     address: str | None = None,
     lat: float | None = None,
@@ -572,8 +661,13 @@ def bushfire_screening(
         lat: Latitude, supplied together with lng instead of address
         lng: Longitude, supplied together with lat instead of address
     """
+    address = address.strip() if isinstance(address, str) else address
     if (lat is None) != (lng is None):
         return json.dumps({"error": "pass both lat and lng, or use address"})
+    if address and lat is not None:
+        return json.dumps({
+            "error": "pass either address or both lat and lng, not both",
+        })
     if not address and lat is None:
         return json.dumps({"error": "pass an address or both lat and lng"})
     params: dict = {"components": "scores.bushfire,hazards.bushfire"}
@@ -632,7 +726,7 @@ def solar_resource(
     lat: float | None = None,
     lng: float | None = None,
 ) -> str:
-    """Focused regional, open-horizon Solar Resource context.
+    """Focused regional, open-horizon Solar Resource Developer Preview.
 
     Returns exactly ``scores.solar`` with GHI/DNI/GTI, PVOUT, optimum tilt,
     field-level resolution, source vintage, licence and attribution. It has no

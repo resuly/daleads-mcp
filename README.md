@@ -4,11 +4,11 @@
 
 DA Leads MCP lets Claude, Cursor and other MCP clients query Australian development applications and address-level property intelligence through the [DA Leads API](https://daleads.com.au/api/).
 
-It exposes DA search, canonical project search and monitoring, nearby
+It exposes 32 tools for DA search, canonical project search and monitoring, nearby
 applications/projects, council and category lookups, read-only SQL analysis,
-property intelligence, focused Bushfire and Walkability screening, score-free
-Property Core, Suburb Signals, SA2 scenarios, Neighbourhood Context and Solar
-Resource, keyless samples and sandbox addresses.
+property intelligence, focused Noise, Flood, Bushfire and Walkability screening,
+score-free Property Core, Suburb Signals, SA2 scenarios, Neighbourhood Context
+and Solar Resource, keyless samples and sandbox addresses.
 
 ## Install
 
@@ -46,6 +46,25 @@ Paid tools use a DA Leads API key. The property sample tools work without a key.
 `DALEADS_API_KEY` is the only environment variable read by this package. Treat
 it as a secret. It is sent only to the fixed official HTTPS API endpoint at
 `https://daleads.com.au/api`.
+
+For Claude Code 2.1+, add the stdio server to the current project with:
+
+```bash
+claude mcp add --scope project da-leads -- uvx daleads-mcp
+```
+
+Keyless sample tools work immediately. For paid tools, launch Claude Code from
+an environment that already provides `DALEADS_API_KEY`; do not commit a real
+key to the project MCP configuration.
+
+## Official Skills
+
+The canonical Agent Skills live in `skills/`. A repository checkout exposes the
+same files to Codex through `.agents/skills/` and to Claude Code through
+`.claude/skills/`; both directories are thin relative symlinks, so there is only
+one maintained instruction source. The Skills guide agents through subject
+identity, coverage, attribution and product-specific limits. They do not grant
+an API entitlement or expand data rights.
 
 ## Tools
 
@@ -180,6 +199,18 @@ SA2s include low/medium/high scenarios. High-growth and greenfield future values
 are withheld while the artifact has no DA dwelling constraint; withheld is not
 zero growth.
 
+**`noise_screening`** — Focused Noise Intelligence lookup. Parameters:
+`address` (recommended) or `lat` + `lng`. It requests exactly `scores.noise` and
+`scores.aircraft_noise`, returning modelled road/rail context, Lden/day/night
+estimates, facade sectors, confidence evidence and aircraft-overlay assessment.
+It is not a site measurement, LA90 result or acoustic compliance assessment.
+
+**`flood_screening`** — Focused Flood Intelligence lookup. Parameters: `address`
+(recommended) or `lat` + `lng`. It requests exactly `scores.flood,hazards.flood`
+and keeps the national screening model, mapped official evidence and any
+study-specific depth separate. Missing depth or mapping is a coverage state,
+not zero depth or proof that flood risk is absent.
+
 **`bushfire_screening`** — Focused commercial Bushfire Screening lookup.
 Parameters: `address` (recommended) or `lat` + `lng` together. It always requests
 exactly `scores.bushfire,hazards.bushfire`, returning subject identity, official
@@ -188,7 +219,7 @@ fire history, coverage and caveats. The standard product does not include
 preliminary BAL and is not a certified assessment. Coordinate-only lookups are
 labelled as such and must not be treated as a building location.
 
-**`walkability_screening`** — Focused Amenity & Walkability Screening lookup.
+**`walkability_screening`** — Focused Amenity & Walkability Screening Pilot lookup.
 Parameters: `address` (recommended) or `lat` + `lng`. It requests exactly
 `scores.walkability`: straight-line metres to 24 amenity scenarios plus
 disclosed motorway, major-water and regional slope adjustments. It is not a
@@ -211,6 +242,7 @@ exactly `scores.solar` and returns regional open-horizon GHI/DNI/GTI, PVOUT,
 optimum tilt, per-field resolution, vintage, licence and attribution. It does
 not identify roof planes, usable area, building or tree shading, obstructions,
 tariffs, self-consumption or batteries and must not be used as rooftop design.
+
 **`property_sample`** — Inspect the complete Property Intelligence response shape
 before you have a key. **No API key required.** No parameters. Returns the real
 production payload for 163 Grattan St, Carlton VIC (a heritage terrace with DA
@@ -245,6 +277,7 @@ Beta and Solar Resource Developer Preview contract. **No API key required.** No
 parameters. Returns a real production-shaped Carlton response containing only
 Neighbourhood Heat, Landscape Openness and Solar Resource, with their legacy v1
 keys, measurement levels, sources, caveats and not-modelled boundaries.
+
 **`property_sandbox_addresses`** — List the addresses you can evaluate for free.
 **No API key required.** No parameters. Returns `{sandbox_addresses: [{address,
 label}, ...], note}` — 12 real addresses spanning all eight states, chosen for

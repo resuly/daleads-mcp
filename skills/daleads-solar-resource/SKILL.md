@@ -1,9 +1,9 @@
 ---
 name: daleads-solar-resource
-description: Interpret regional, open-horizon solar resource for an Australian address through DA Leads API or MCP. Use for report benchmarks, quote sanity checks, portfolio ranking and upstream site screening. Do not use it as rooftop qualification, panel layout, shading, tariff, battery or financial design.
+description: Interpret the DA Leads Solar Resource Developer Preview for an Australian address using regional, open-horizon evidence. Use for report benchmarks, quote sanity checks, portfolio ranking and upstream site screening. Do not use it as rooftop qualification, panel layout, shading, tariff, battery or financial design.
 ---
 
-# DA Leads Solar Resource
+# DA Leads Solar Resource Developer Preview
 
 Use the `solar_resource` MCP tool. Prefer a full street address. Use latitude
 and longitude only when the user supplied the actual location.

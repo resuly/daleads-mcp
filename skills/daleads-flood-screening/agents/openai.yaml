@@ -1,0 +1,4 @@
+interface:
+  display_name: "DA Leads Flood Screening"
+  short_description: "Separate flood screening from official study evidence"
+  default_prompt: "Use $daleads-flood-screening to screen this property, separate official evidence from modelled context, and explain coverage gaps and next actions."

@@ -1,9 +1,9 @@
 ---
 name: daleads-walkability-screening
-description: Screen amenity proximity and disclosed walking barriers for an Australian property through DA Leads. Use for site selection, neighbourhood comparison and portfolio triage. Do not use it as a walking-route, isochrone, accessibility-compliance or travel-time result.
+description: Use the DA Leads Amenity & Walkability Screening Pilot to screen amenity proximity and disclosed walking barriers for an Australian property. Use for site selection, neighbourhood comparison and portfolio triage. Do not use it as a walking-route, isochrone, accessibility-compliance or travel-time result.
 ---
 
-# DA Leads Amenity & Walkability Screening
+# DA Leads Amenity & Walkability Screening Pilot
 
 Use `walkability_screening`. Prefer a full address; use coordinates only for a
 user-supplied subject point. Call `property_walkability_sample` first when the

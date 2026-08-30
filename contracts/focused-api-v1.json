@@ -1,0 +1,151 @@
+{
+  "contract_version": "focused-api-v1",
+  "api_base_url": "https://daleads.com.au/api",
+  "authentication": {
+    "environment_variable": "DALEADS_API_KEY",
+    "header": "Authorization: Bearer <key>",
+    "keyless_surfaces": "samples_and_sandbox_only"
+  },
+  "lifecycle_vocabulary": [
+    "ready",
+    "contract_ready",
+    "contract_preview",
+    "pilot",
+    "beta",
+    "developer_preview"
+  ],
+  "subject_contract": {
+    "mode": "address_or_coordinate_pair",
+    "partial_coordinates_error": "pass both lat and lng, or use address",
+    "mixed_subject_error": "pass either address or both lat and lng, not both",
+    "missing_subject_error": "pass an address or both lat and lng"
+  },
+  "tools": {
+    "property_intelligence": {
+      "lifecycle": "ready",
+      "method": "GET",
+      "path": "/api/v1/property",
+      "query": ["address", "lat", "lng", "components"],
+      "subject": "address_or_coordinate_pair",
+      "sample_tool": "property_sample"
+    },
+    "property_core": {
+      "lifecycle": "contract_preview",
+      "method": "GET",
+      "path": "/api/v1/property/core",
+      "query": ["address", "lat", "lng"],
+      "subject": "address_or_coordinate_pair",
+      "sample_tool": "property_core_sample"
+    },
+    "noise_screening": {
+      "lifecycle": "ready",
+      "method": "GET",
+      "path": "/api/v1/property",
+      "query": ["address", "lat", "lng", "components"],
+      "subject": "address_or_coordinate_pair",
+      "closed_components": ["scores.noise", "scores.aircraft_noise"],
+      "sample_tool": "property_sample"
+    },
+    "flood_screening": {
+      "lifecycle": "ready",
+      "method": "GET",
+      "path": "/api/v1/property",
+      "query": ["address", "lat", "lng", "components"],
+      "subject": "address_or_coordinate_pair",
+      "closed_components": ["scores.flood", "hazards.flood"],
+      "sample_tool": "property_flood_sample"
+    },
+    "bushfire_screening": {
+      "lifecycle": "contract_ready",
+      "method": "GET",
+      "path": "/api/v1/property",
+      "query": ["address", "lat", "lng", "components"],
+      "subject": "address_or_coordinate_pair",
+      "closed_components": ["scores.bushfire", "hazards.bushfire"],
+      "sample_tool": "property_bushfire_sample"
+    },
+    "walkability_screening": {
+      "lifecycle": "pilot",
+      "method": "GET",
+      "path": "/api/v1/property",
+      "query": ["address", "lat", "lng", "components"],
+      "subject": "address_or_coordinate_pair",
+      "closed_components": ["scores.walkability"],
+      "sample_tool": "property_walkability_sample"
+    },
+    "neighbourhood_context": {
+      "lifecycle": "beta",
+      "method": "GET",
+      "path": "/api/v1/property",
+      "query": ["address", "lat", "lng", "components"],
+      "subject": "address_or_coordinate_pair",
+      "closed_components": ["scores.heat_island", "scores.view_quality"],
+      "sample_tool": "property_context_sample"
+    },
+    "solar_resource": {
+      "lifecycle": "developer_preview",
+      "method": "GET",
+      "path": "/api/v1/property",
+      "query": ["address", "lat", "lng", "components"],
+      "subject": "address_or_coordinate_pair",
+      "closed_components": ["scores.solar"],
+      "sample_tool": "property_context_sample"
+    },
+    "find_suburbs": {
+      "lifecycle": "beta",
+      "method": "GET",
+      "path": "/api/v1/suburbs",
+      "query": ["q", "state", "per_page"]
+    },
+    "suburb_signals": {
+      "lifecycle": "beta",
+      "method": "GET",
+      "path": "/api/v1/suburb-signals/{sal_code}",
+      "query": [],
+      "path_parameter": {
+        "name": "sal_code",
+        "pattern": "^SAL[0-9]{5}$",
+        "error": "invalid sal_code: expected SAL followed by five digits"
+      },
+      "sample_tool": "suburb_signals_sample"
+    },
+    "find_sa2_regions": {
+      "lifecycle": "beta",
+      "method": "GET",
+      "path": "/api/v1/regions/sa2",
+      "query": ["name", "state", "limit"]
+    },
+    "sa2_population_forecast": {
+      "lifecycle": "beta",
+      "method": "GET",
+      "path": "/api/v1/regions/sa2/{sa2_code}/forecast",
+      "query": [],
+      "path_parameter": {
+        "name": "sa2_code",
+        "pattern": "^[0-9]{9}$",
+        "error": "invalid sa2_code: expected exactly nine digits"
+      },
+      "sample_tool": "sa2_population_forecast_sample"
+    }
+  },
+  "keyless_samples": {
+    "property_sample": "/api/v1/property/sample",
+    "property_core_sample": "/api/v1/property/sample/core",
+    "suburb_signals_sample": "/api/v1/suburb-signals/sample",
+    "sa2_population_forecast_sample": "/api/v1/regions/sa2/forecast/sample",
+    "property_walkability_sample": "/api/v1/property/sample/walkability",
+    "property_flood_sample": "/api/v1/property/sample/flood",
+    "property_bushfire_sample": "/api/v1/property/sample/bushfire",
+    "property_context_sample": "/api/v1/property/sample/context",
+    "property_sandbox_addresses": "/api/v1/property/sandbox"
+  },
+  "standalone_product_exclusions": {
+    "contamination": {
+      "focused_tool": "not_published",
+      "focused_skill": "not_published",
+      "focused_sample": "not_published",
+      "offer_state": "not_sellable",
+      "legacy_full_compatibility": "The generic property_intelligence tool and property_sample may carry provider-controlled Full Property fields. Their presence does not publish or authorize a standalone Contamination product."
+    }
+  }
+}
