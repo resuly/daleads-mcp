@@ -137,8 +137,9 @@ This tool changes external state and returns the signing secret.
 secrets are never returned by the list operation.
 
 **`deactivate_project_watch`** — Stop one owned watch by `watch_uid`. Delivery
-audit rows remain durable; receivers must deduplicate the stable callback
-`Idempotency-Key` header.
+audit rows remain durable. Pending work is suppressed, but an HTTPS request
+already in flight cannot be recalled and remains visible in the audit.
+Receivers must deduplicate the stable callback `Idempotency-Key` header.
 
 The repository includes `skills/daleads-project-monitoring` for cursor polling
 and explicit callback management. It is installed from the GitHub repository, not bundled inside the

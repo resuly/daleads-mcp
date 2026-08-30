@@ -31,8 +31,10 @@ Use the tools in this sequence as the task requires:
    from the create response; `list_project_watches` intentionally omits it.
 7. Use `list_project_watches` to inspect registrations and
    `deactivate_project_watch` to stop one. Deactivation does not erase its
-   delivery audit trail. Cursor polling remains the simpler default when the
-   user has no callback receiver.
+   delivery audit trail. It suppresses pending work but cannot recall an HTTPS
+   request already in flight; that attempt remains explicit in the audit.
+   Cursor polling remains the simpler default when the user has no callback
+   receiver.
 
 When interpreting a response:
 
