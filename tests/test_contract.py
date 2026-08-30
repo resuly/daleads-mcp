@@ -214,9 +214,21 @@ def test_focused_lifecycle_and_standalone_exclusions_are_explicit():
     exclusion = FOCUSED_CONTRACT["standalone_product_exclusions"][
         "contamination"]
     assert exclusion["offer_state"] == "not_sellable"
-    assert exclusion["focused_tool"] == "not_published"
+    assert exclusion["provider_contract_sample"] == {
+        "state": "published_fail_closed_contract_only",
+        "path": "/api/v1/property/sample/contamination",
+        "keyless": True,
+        "does_not_authorize_offer": True,
+    }
+    assert exclusion["mcp_tool"] == "not_published"
+    assert exclusion["mcp_sample_tool"] == "not_published"
+    assert exclusion["mcp_skill"] == "not_published"
     assert "legacy_full_compatibility" in exclusion
     assert "contamination_screening" not in FOCUSED_CONTRACT["tools"]
+    assert all("contamination" not in name
+               for name in FOCUSED_CONTRACT["keyless_samples"])
+    assert not hasattr(mcp_server, "contamination_screening")
+    assert not hasattr(mcp_server, "property_contamination_sample")
     assert not (root / "skills" / "daleads-contamination-screening").exists()
 
 

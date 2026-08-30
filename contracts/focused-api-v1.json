@@ -141,9 +141,15 @@
   },
   "standalone_product_exclusions": {
     "contamination": {
-      "focused_tool": "not_published",
-      "focused_skill": "not_published",
-      "focused_sample": "not_published",
+      "provider_contract_sample": {
+        "state": "published_fail_closed_contract_only",
+        "path": "/api/v1/property/sample/contamination",
+        "keyless": true,
+        "does_not_authorize_offer": true
+      },
+      "mcp_tool": "not_published",
+      "mcp_sample_tool": "not_published",
+      "mcp_skill": "not_published",
       "offer_state": "not_sellable",
       "legacy_full_compatibility": "The generic property_intelligence tool and property_sample may carry provider-controlled Full Property fields. Their presence does not publish or authorize a standalone Contamination product."
     }
