@@ -26,6 +26,16 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Check out the canonical DA Leads provider contract
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: resuly/da_leads
+          ref: main
+          path: .provider/da_leads
+          token: ${{ secrets.DA_LEADS_READ_TOKEN }}
+          fetch-depth: 1
+          persist-credentials: false
+
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
@@ -93,6 +103,11 @@ jobs:
               check=True,
           )
           PY
+
+      - name: Verify Contamination provider and MCP contracts are identical
+        run: >-
+          python scripts/check_contamination_contract.py
+          --provider-repo .provider/da_leads
 
       - name: Install build verification tools
         run: >-

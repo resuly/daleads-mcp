@@ -3,10 +3,18 @@ from pathlib import Path
 from unittest.mock import patch
 
 import mcp_server
+import pytest
+
+from scripts.check_contamination_contract import compare as compare_contamination_contract
 
 
 PROJECT_CONTRACT = json.loads(
     (Path(__file__).parents[1] / "contracts" / "project-intelligence-v1.json")
+    .read_text(encoding="utf-8")
+)
+
+CONTAMINATION_CONTRACT = json.loads(
+    (Path(__file__).parents[1] / "contracts/contamination-screening-v1.json")
     .read_text(encoding="utf-8")
 )
 
@@ -78,6 +86,35 @@ def test_project_contract_is_bound_to_one_official_key_and_endpoint():
         "header": "Authorization: Bearer <key>",
         "entitlement": "project_intelligence",
     }
+
+
+def test_contamination_contract_records_provider_only_fail_closed_surface():
+    assert CONTAMINATION_CONTRACT["contract_version"] == \
+        "contamination-screening-v1"
+    assert CONTAMINATION_CONTRACT["provider_sample_path"] == \
+        "/api/v1/property/sample/contamination"
+    assert CONTAMINATION_CONTRACT["component"] == "scores.contamination"
+    assert CONTAMINATION_CONTRACT["standalone_offer_state"] == "not_sellable"
+    required = CONTAMINATION_CONTRACT["delivery_contract_schema"]["required"]
+    assert "subject_identity" in required
+    assert "professional_assessment_required" in required
+    assert not hasattr(mcp_server, "contamination_screening")
+
+
+def test_contamination_release_gate_fails_on_provider_drift(tmp_path):
+    root = Path(__file__).resolve().parents[1]
+    provider = tmp_path / "provider"
+    target = provider / "contracts"
+    target.mkdir(parents=True)
+    source = root / "contracts/contamination-screening-v1.json"
+    (target / source.name).write_bytes(source.read_bytes())
+    assert compare_contamination_contract(provider, root)["state"] == "ok"
+
+    payload = json.loads((target / source.name).read_text(encoding="utf-8"))
+    payload["delivery_contract_schema"]["required"].remove("subject_identity")
+    (target / source.name).write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="contracts differ"):
+        compare_contamination_contract(provider, root)
 
 
 def test_search_projects_matches_provider_contract():
