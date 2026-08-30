@@ -26,11 +26,29 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Check out the canonical DA Leads provider contract
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: resuly/da_leads
+          ref: main
+          path: .provider/da_leads
+          # Fine-grained PAT or GitHub App token scoped only to
+          # resuly/da_leads:contents:read. The default token cannot read this
+          # private sibling repository.
+          token: ${{ secrets.DA_LEADS_READ_TOKEN }}
+          fetch-depth: 1
+          persist-credentials: false
+
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.13"
           cache: pip
+
+      - name: Verify provider and consumer API contracts are identical
+        run: >-
+          python scripts/check_provider_contract.py
+          --provider-repo .provider/da_leads
 
       - name: Verify release and MCP metadata
         env:

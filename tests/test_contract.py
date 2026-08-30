@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import mcp_server
 import pytest
+from scripts.check_provider_contract import compare as compare_provider_contract
 
 
 PROJECT_CONTRACT = json.loads(
@@ -44,6 +45,34 @@ def test_release_versions_are_one_contract():
     assert {package["version"] for package in registry["packages"]} == {
         project_version,
     }
+
+
+def test_release_gate_fails_when_provider_contract_drifts(tmp_path):
+    root = Path(__file__).resolve().parents[1]
+    provider = tmp_path / "provider"
+    provider_contracts = provider / "contracts"
+    provider_contracts.mkdir(parents=True)
+    source = json.loads((root / "contracts" / "focused-api-v1.json")
+                        .read_text(encoding="utf-8"))
+    (provider_contracts / "focused-api-v1.json").write_text(
+        json.dumps(source), encoding="utf-8")
+    assert compare_provider_contract(provider, root)["state"] == "ok"
+
+    source["tools"]["solar_resource"]["lifecycle"] = "ready"
+    (provider_contracts / "focused-api-v1.json").write_text(
+        json.dumps(source), encoding="utf-8")
+    with pytest.raises(ValueError, match="provider/consumer contracts differ"):
+        compare_provider_contract(provider, root)
+
+
+def test_release_workflow_checks_out_and_compares_provider_contract():
+    root = Path(__file__).resolve().parents[1]
+    workflow = (root / ".github" / "workflows" / "release.yml").read_text(
+        encoding="utf-8")
+    assert "repository: resuly/da_leads" in workflow
+    assert "ref: main" in workflow
+    assert "token: ${{ secrets.DA_LEADS_READ_TOKEN }}" in workflow
+    assert "python scripts/check_provider_contract.py" in workflow
 
 
 def test_readme_tool_count_and_new_skills_are_complete():
