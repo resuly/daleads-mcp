@@ -27,7 +27,79 @@
       "path": "/api/v1/property",
       "query": ["address", "lat", "lng", "components"],
       "subject": "address_or_coordinate_pair",
-      "sample_tool": "property_sample"
+      "sample_tool": "property_sample",
+      "product_role": "generic_entitlement_intersection",
+      "does_not_grant_full_entitlement": true
+    },
+    "full_property_intelligence": {
+      "lifecycle": "contract_ready",
+      "product_version": "full-property-intelligence-v1",
+      "method": "GET",
+      "path": "/api/v1/property",
+      "query": ["address", "lat", "lng", "components"],
+      "subject": "address_or_coordinate_pair",
+      "closed_components": [
+        "das",
+        "poi",
+        "planning",
+        "hazards.bushfire",
+        "hazards.flood",
+        "hazards.coastal",
+        "hazards.landslide",
+        "hazards.fire_history",
+        "hazards.contaminated",
+        "hazards.landfill",
+        "hazards.groundwater_restricted",
+        "hazards.groundwater_vulnerability",
+        "environment.contaminated_nearby",
+        "environment.historical_business_nearby",
+        "environment.landfill_nearby",
+        "environment.licensed_activity",
+        "environment.licensed_activity_nearby",
+        "environment.petroleum_storage",
+        "environment.petroleum_storage_nearby",
+        "environment.soil_regional",
+        "environment.protected",
+        "environment.aboriginal_heritage",
+        "environment.soil",
+        "environment.world_heritage",
+        "environment.threatened_species",
+        "environment.ramsar",
+        "environment.national_heritage",
+        "environment.koala_habitat",
+        "environment.key_ecological",
+        "environment.indigenous_protected",
+        "environment.cultural_heritage",
+        "environment.epbc_referral",
+        "environment.bioregion",
+        "environment.bv_map",
+        "environment.bio_important",
+        "environment.commonwealth_heritage",
+        "transport",
+        "utilities",
+        "administrative",
+        "public_housing",
+        "scores.noise",
+        "scores.aircraft_noise",
+        "scores.flood",
+        "scores.bushfire"
+      ],
+      "entitlement_capabilities": [
+        "suburb_intelligence",
+        "property_core"
+      ],
+      "wildcard_entitlement": false,
+      "excluded_components": [
+        "scores",
+        "scores.solar",
+        "scores.contamination",
+        "scores.heat_island",
+        "scores.view_quality",
+        "scores.walkability"
+      ],
+      "sample_tool": "property_sample",
+      "sample_scope": "generic_schema_preview_not_entitlement_proof",
+      "sample_note": "The generic property sample may show fields outside public Full Self-Serve and is not entitlement evidence."
     },
     "property_core": {
       "lifecycle": "contract_preview",
@@ -44,7 +116,8 @@
       "query": ["address", "lat", "lng", "components"],
       "subject": "address_or_coordinate_pair",
       "closed_components": ["scores.noise", "scores.aircraft_noise"],
-      "sample_tool": "property_sample"
+      "sample_tool": "property_sample",
+      "sample_scope": "inspect_only_noise_fields_not_entitlement_proof"
     },
     "flood_screening": {
       "lifecycle": "ready",
@@ -62,6 +135,10 @@
       "query": ["address", "lat", "lng", "components"],
       "subject": "address_or_coordinate_pair",
       "closed_components": ["scores.bushfire", "hazards.bushfire"],
+      "preliminary_bal": {
+        "included": false,
+        "contract_marker_only": true
+      },
       "sample_tool": "property_bushfire_sample"
     },
     "walkability_screening": {

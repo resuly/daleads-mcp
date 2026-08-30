@@ -34,7 +34,9 @@ mcp = FastMCP(
         "durable callback watches. Use search_das for "
         "filtered listing, nearby_das for spatial queries, sql_query for custom "
         "analytics, search_projects for real projects, property_intelligence "
-        "for a full address profile, noise_screening and flood_screening for "
+        "for a provider-entitlement-filtered address profile, "
+        "full_property_intelligence for the closed public Full Property "
+        "Self-Serve contract, and noise_screening and flood_screening for "
         "the Ready focused modules, bushfire_screening for its focused "
         "commercial screening contract, "
         "property_core for score-free public-record context, suburb_signals "
@@ -49,11 +51,59 @@ mcp = FastMCP(
         "property_context_sample demonstrates the coordinated heat, landscape "
         "and solar contract, and "
         "property_sandbox_addresses lists real addresses that never count "
-        "toward a key's quota."
+        "toward a key's quota. property_sample is a generic schema preview, "
+        "not proof that every displayed field belongs to Full Self-Serve."
     ),
 )
 
 _client = None
+
+_FULL_PROPERTY_COMPONENTS = (
+    "das",
+    "poi",
+    "planning",
+    "hazards.bushfire",
+    "hazards.flood",
+    "hazards.coastal",
+    "hazards.landslide",
+    "hazards.fire_history",
+    "hazards.contaminated",
+    "hazards.landfill",
+    "hazards.groundwater_restricted",
+    "hazards.groundwater_vulnerability",
+    "environment.contaminated_nearby",
+    "environment.historical_business_nearby",
+    "environment.landfill_nearby",
+    "environment.licensed_activity",
+    "environment.licensed_activity_nearby",
+    "environment.petroleum_storage",
+    "environment.petroleum_storage_nearby",
+    "environment.soil_regional",
+    "environment.protected",
+    "environment.aboriginal_heritage",
+    "environment.soil",
+    "environment.world_heritage",
+    "environment.threatened_species",
+    "environment.ramsar",
+    "environment.national_heritage",
+    "environment.koala_habitat",
+    "environment.key_ecological",
+    "environment.indigenous_protected",
+    "environment.cultural_heritage",
+    "environment.epbc_referral",
+    "environment.bioregion",
+    "environment.bv_map",
+    "environment.bio_important",
+    "environment.commonwealth_heritage",
+    "transport",
+    "utilities",
+    "administrative",
+    "public_housing",
+    "scores.noise",
+    "scores.aircraft_noise",
+    "scores.flood",
+    "scores.bushfire",
+)
 
 
 def _get_client() -> httpx.Client:
@@ -427,14 +477,17 @@ def property_intelligence(
     lng: float | None = None,
     components: str | None = None,
 ) -> str:
-    """Full property intelligence profile for one Australian address (or lat/lng point).
+    """Generic entitlement-filtered property profile for an Australian subject.
 
     Returns planning (zones, overlays, heritage), hazards (flood, bushfire),
     environment, transport, nearby DAs, points of interest and scored risk
-    components for the address. Requires an API key on a Property Intelligence
-    plan; each lookup counts toward the key's monthly quota, except the sandbox
-    addresses from property_sandbox_addresses which are never metered.
-    No key? Use property_sample for a complete keyless example first.
+    components allowed by the API key. Supplying a component name never grants
+    that component: the provider intersects every request with the key's
+    server-side entitlement and rights policy. New public Full Self-Serve
+    workflows should use full_property_intelligence, whose request is closed.
+    Each lookup counts toward the key's quota except the sandbox addresses from
+    property_sandbox_addresses. property_sample is a generic schema preview,
+    not evidence that every sample field belongs to a particular plan.
 
     Args:
         address: Free-text address, e.g. "34 Mary St Clayton VIC"
@@ -464,6 +517,52 @@ def property_intelligence(
         params["components"] = components
     data = _api_get("/v1/property", params)
     return json.dumps(data, indent=2)
+
+
+@mcp.tool()
+def full_property_intelligence(
+    address: str | None = None,
+    lat: float | None = None,
+    lng: float | None = None,
+) -> str:
+    """Closed Full Property Intelligence Self-Serve lookup for one subject.
+
+    Requests only the approved factual blocks and named hazard/environment
+    leaves, plus the four approved Noise, Aircraft Noise, Flood and Bushfire
+    score leaves. It never requests top-level ``hazards``, ``environment`` or
+    ``scores`` wildcards, so later fields cannot enter Full by inheritance.
+    Rights-gated factual register context can return, but that does not grant
+    the standalone Contamination score or product. Solar, Neighbourhood Heat,
+    Landscape Openness and the Walkability Pilot are excluded. The plan
+    separately carries Property Core and Suburb Intelligence capabilities;
+    those do not expand this response. The provider still applies field-level
+    rights and source gates.
+
+    ``property_sample`` is the available keyless schema preview. Because that
+    generic provider sample can display Preview fields outside this public Full
+    contract, use it to learn shape only and never as entitlement evidence.
+
+    Args:
+        address: Free-text property address (recommended)
+        lat: Latitude, supplied together with lng instead of address
+        lng: Longitude, supplied together with lat instead of address
+    """
+    address = address.strip() if isinstance(address, str) else address
+    if (lat is None) != (lng is None):
+        return json.dumps({"error": "pass both lat and lng, or use address"})
+    if address and lat is not None:
+        return json.dumps({
+            "error": "pass either address or both lat and lng, not both",
+        })
+    if not address and lat is None:
+        return json.dumps({"error": "pass an address or both lat and lng"})
+    params: dict = {"components": ",".join(_FULL_PROPERTY_COMPONENTS)}
+    if address:
+        params["address"] = address
+    if lat is not None and lng is not None:
+        params["lat"] = lat
+        params["lng"] = lng
+    return json.dumps(_api_get("/v1/property", params), indent=2)
 
 
 @mcp.tool()
@@ -666,7 +765,9 @@ def flood_screening(
     Requests exactly ``scores.flood`` and ``hazards.flood``. Keep the modelled
     screening score, official mapped evidence and study-specific depth separate.
     Missing official depth means the current study library does not cover the
-    point; it is not zero depth or proof of no flood risk.
+    point; it is not zero depth or proof of no flood risk. Screening is
+    national; official modelled depth currently comes from 55 production
+    rasters (48 Brisbane and 7 NSW).
 
     Args:
         address: Free-text property address (recommended)
@@ -812,11 +913,12 @@ def solar_resource(
 
 @mcp.tool()
 def property_sample() -> str:
-    """Complete real Property Intelligence response, no API key required.
+    """Generic real Property Intelligence schema preview, no key required.
 
     Returns the canned production payload for 163 Grattan St, Carlton VIC
-    (heritage terrace with DA activity) so you can inspect the full response
-    shape before requesting a key.
+    (heritage terrace with DA activity) so you can inspect the response envelope
+    before requesting a key. It can show Preview fields outside the Noise and
+    public Full products and therefore is not entitlement evidence.
     """
     data = _api_get("/v1/property/sample")
     return json.dumps(data, indent=2)

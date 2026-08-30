@@ -56,6 +56,7 @@ def test_release_versions_are_one_contract():
     version_match = re.search(r'^version = "([^"]+)"$', project_text, re.MULTILINE)
     assert version_match, "pyproject.toml has no single-line project version"
     project_version = version_match.group(1)
+    assert project_version == "0.4.0"
     registry = json.loads((root / "server.json").read_text(encoding="utf-8"))
     assert registry["version"] == project_version
     assert {package["version"] for package in registry["packages"]} == {
@@ -124,7 +125,8 @@ def test_readme_tool_count_and_new_skills_are_complete():
         "create_project_watch", "list_project_watches",
         "deactivate_project_watch",
         "list_categories", "list_councils", "get_stats", "sql_query",
-        "property_intelligence", "property_core", "find_suburbs",
+        "property_intelligence", "full_property_intelligence",
+        "property_core", "find_suburbs",
         "find_sa2_regions", "suburb_signals", "sa2_population_forecast",
         "walkability_screening", "noise_screening", "flood_screening",
         "bushfire_screening",
@@ -136,10 +138,11 @@ def test_readme_tool_count_and_new_skills_are_complete():
     }
     assert set(FOCUSED_CONTRACT["tools"]) <= registered_tools
     assert set(FOCUSED_CONTRACT["keyless_samples"]) <= registered_tools
-    assert "It exposes 35 tools" in readme
+    assert "It exposes 36 tools" in readme
     for name in (
         "daleads-bushfire-screening",
         "daleads-flood-screening",
+        "daleads-full-property-intelligence",
         "daleads-neighbourhood-context",
         "daleads-noise-screening",
         "daleads-project-monitoring",
@@ -259,6 +262,130 @@ def test_focused_lifecycle_and_standalone_exclusions_are_explicit():
     assert not hasattr(mcp_server, "contamination_screening")
     assert not hasattr(mcp_server, "property_contamination_sample")
     assert not (root / "skills" / "daleads-contamination-screening").exists()
+
+
+def test_four_self_serve_tools_have_keyless_sample_contracts():
+    for tool_name in (
+        "noise_screening",
+        "flood_screening",
+        "bushfire_screening",
+        "full_property_intelligence",
+    ):
+        sample_tool = FOCUSED_CONTRACT["tools"][tool_name]["sample_tool"]
+        assert sample_tool in FOCUSED_CONTRACT["keyless_samples"]
+        assert hasattr(mcp_server, sample_tool)
+
+    for tool_name in ("noise_screening", "full_property_intelligence"):
+        specification = FOCUSED_CONTRACT["tools"][tool_name]
+        assert specification["sample_tool"] == "property_sample"
+        assert "not_entitlement_proof" in specification["sample_scope"]
+
+
+def test_full_self_serve_contract_is_closed_and_excludes_preview_products():
+    specification = FOCUSED_CONTRACT["tools"]["full_property_intelligence"]
+    expected_components = [
+        "das",
+        "poi",
+        "planning",
+        "hazards.bushfire",
+        "hazards.flood",
+        "hazards.coastal",
+        "hazards.landslide",
+        "hazards.fire_history",
+        "hazards.contaminated",
+        "hazards.landfill",
+        "hazards.groundwater_restricted",
+        "hazards.groundwater_vulnerability",
+        "environment.contaminated_nearby",
+        "environment.historical_business_nearby",
+        "environment.landfill_nearby",
+        "environment.licensed_activity",
+        "environment.licensed_activity_nearby",
+        "environment.petroleum_storage",
+        "environment.petroleum_storage_nearby",
+        "environment.soil_regional",
+        "environment.protected",
+        "environment.aboriginal_heritage",
+        "environment.soil",
+        "environment.world_heritage",
+        "environment.threatened_species",
+        "environment.ramsar",
+        "environment.national_heritage",
+        "environment.koala_habitat",
+        "environment.key_ecological",
+        "environment.indigenous_protected",
+        "environment.cultural_heritage",
+        "environment.epbc_referral",
+        "environment.bioregion",
+        "environment.bv_map",
+        "environment.bio_important",
+        "environment.commonwealth_heritage",
+        "transport",
+        "utilities",
+        "administrative",
+        "public_housing",
+        "scores.noise",
+        "scores.aircraft_noise",
+        "scores.flood",
+        "scores.bushfire",
+    ]
+    excluded = {
+        "scores",
+        "scores.solar",
+        "scores.contamination",
+        "scores.heat_island",
+        "scores.view_quality",
+        "scores.walkability",
+    }
+    assert specification["lifecycle"] == "contract_ready"
+    assert specification["product_version"] == "full-property-intelligence-v1"
+    assert specification["closed_components"] == expected_components
+    assert set(specification["entitlement_capabilities"]) == {
+        "property_core", "suburb_intelligence",
+    }
+    assert specification["wildcard_entitlement"] is False
+    assert set(specification["excluded_components"]) == excluded
+    assert not excluded.intersection(specification["closed_components"])
+    assert "hazards" not in specification["closed_components"]
+    assert "environment" not in specification["closed_components"]
+    assert "hazards.contaminated" in specification["closed_components"]
+    assert "scores.contamination" not in specification["closed_components"]
+    assert "*" not in specification["closed_components"]
+    assert FOCUSED_CONTRACT["tools"]["property_intelligence"][
+        "does_not_grant_full_entitlement"] is True
+    assert "not entitlement evidence" in specification["sample_note"]
+
+
+def test_bushfire_contract_excludes_bal_delivery():
+    root = Path(__file__).resolve().parents[1]
+    specification = FOCUSED_CONTRACT["tools"]["bushfire_screening"]
+    assert all("bal" not in component.casefold()
+               for component in specification["closed_components"])
+    assert specification["preliminary_bal"] == {
+        "included": False,
+        "contract_marker_only": True,
+    }
+    assert "does not include preliminary BAL" in (
+        mcp_server.bushfire_screening.__doc__ or "")
+    skill = (root / "skills" / "daleads-bushfire-screening" /
+             "SKILL.md").read_text(encoding="utf-8")
+    assert "Preliminary BAL is intentionally absent" in " ".join(skill.split())
+
+
+def test_flood_sales_surfaces_keep_national_and_depth_coverage_separate():
+    root = Path(__file__).resolve().parents[1]
+    surfaces = (
+        mcp_server.flood_screening.__doc__ or "",
+        (root / "README.md").read_text(encoding="utf-8"),
+        (root / "skills" / "daleads-flood-screening" /
+         "SKILL.md").read_text(encoding="utf-8"),
+    )
+    for text in surfaces:
+        normalized = " ".join(text.split())
+        assert "55 production rasters" in normalized
+        assert "48 Brisbane" in normalized
+        assert "7 NSW" in normalized
+    assert "Screening is national" in " ".join(surfaces[0].split())
 
 
 def test_contamination_contract_records_provider_only_fail_closed_surface():
@@ -412,6 +539,20 @@ def test_cursor_contract_distinguishes_checkpoint_from_page_continuation():
     assert semantics["page_continuation"] == "meta.next_cursor"
 
 
+def test_full_property_intelligence_uses_exact_closed_component_set():
+    with patch.object(mcp_server, "_api_get", return_value={"meta": {}}) as get:
+        json.loads(mcp_server.full_property_intelligence(
+            address="163 Grattan St Carlton VIC"))
+
+    get.assert_called_once_with(
+        _focused_path("full_property_intelligence"),
+        {
+            "address": "163 Grattan St Carlton VIC",
+            "components": _focused_components("full_property_intelligence"),
+        },
+    )
+
+
 def test_bushfire_screening_uses_closed_component_set():
     with patch.object(mcp_server, "_api_get", return_value={"scores": {}}) as get:
         json.loads(mcp_server.bushfire_screening(
@@ -474,6 +615,21 @@ def test_property_intelligence_rejects_invalid_subjects_before_network():
         "partial_coordinates_error"]
     assert mixed["error"] == FOCUSED_CONTRACT["subject_contract"][
         "mixed_subject_error"]
+    get.assert_not_called()
+
+
+def test_full_property_intelligence_rejects_invalid_subjects_before_network():
+    with patch.object(mcp_server, "_api_get") as get:
+        missing = json.loads(mcp_server.full_property_intelligence())
+        blank = json.loads(mcp_server.full_property_intelligence(address="   "))
+        partial = json.loads(mcp_server.full_property_intelligence(lat=-37.8))
+        mixed = json.loads(mcp_server.full_property_intelligence(
+            address="1 Wrong Street, Sydney NSW", lat=-37.8, lng=144.96))
+    subject = FOCUSED_CONTRACT["subject_contract"]
+    assert missing["error"] == subject["missing_subject_error"]
+    assert blank == missing
+    assert partial["error"] == subject["partial_coordinates_error"]
+    assert mixed["error"] == subject["mixed_subject_error"]
     get.assert_not_called()
 
 
@@ -597,8 +753,9 @@ def test_ready_noise_and_flood_tools_use_closed_component_sets():
 
 def test_all_closed_property_tools_reject_mixed_subjects_before_network():
     tool_names = (
-        "noise_screening", "flood_screening", "walkability_screening",
-        "bushfire_screening", "neighbourhood_context", "solar_resource",
+        "noise_screening", "flood_screening", "full_property_intelligence",
+        "walkability_screening", "bushfire_screening",
+        "neighbourhood_context", "solar_resource",
     )
     for tool_name in tool_names:
         with patch.object(mcp_server, "_api_get") as get:

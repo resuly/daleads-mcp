@@ -7,7 +7,9 @@ description: Screen road, rail and aircraft noise at an Australian property thro
 
 Use `noise_screening`. Prefer a full street address; use coordinates only when
 the user supplied the actual subject point. Call `property_sample` first when
-the response shape is unfamiliar and inspect its Noise fields.
+the response shape is unfamiliar and inspect only its Noise fields. That sample
+is a generic schema preview; its other fields are not part of the Noise product
+and do not prove any entitlement.
 
 Before interpreting the result:
 

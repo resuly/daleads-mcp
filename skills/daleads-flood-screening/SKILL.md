@@ -18,6 +18,8 @@ Before interpreting the result:
    the other when official coverage is incomplete or unavailable.
 3. Read `overlay_basis`, coverage status and source vintage. A clear result from
    a partial library is not national proof that no official mapping applies.
+   National screening is available, while official modelled depth currently
+   comes from 55 production rasters (48 Brisbane and 7 NSW).
 4. Treat `flood_depth` as study-specific evidence only where its source, AEP,
    units and coverage are present. Missing depth means the current study library
    does not cover the point; it is not zero depth or zero risk.

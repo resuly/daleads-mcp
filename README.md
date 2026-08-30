@@ -4,11 +4,12 @@
 
 DA Leads MCP lets Claude, Cursor and other MCP clients query Australian development applications and address-level property intelligence through the [DA Leads API](https://daleads.com.au/api/).
 
-It exposes 35 tools for DA search, canonical project search and monitoring, nearby
+It exposes 36 tools for DA search, canonical project search and monitoring, nearby
 applications/projects, council and category lookups, read-only SQL analysis,
-property intelligence, focused Noise, Flood, Bushfire and Walkability screening,
-score-free Property Core, Suburb Signals, SA2 scenarios, Neighbourhood Context
-and Solar Resource, keyless samples and sandbox addresses.
+generic entitlement-filtered property intelligence, the closed public Full
+Property contract, focused Noise, Flood, Bushfire and Walkability screening,
+score-free Property Core, Suburb Signals, SA2 scenarios, Neighbourhood Context,
+Solar Resource, keyless samples and sandbox addresses.
 
 ## Install
 
@@ -59,7 +60,7 @@ key to the project MCP configuration.
 
 ## Official Skills
 
-The canonical Agent Skills live in `skills/`. A repository checkout exposes the
+The 10 canonical Agent Skills live in `skills/`. A repository checkout exposes the
 same files to Codex through `.agents/skills/` and to Claude Code through
 `.claude/skills/`; both directories are thin relative symlinks, so there is only
 one maintained instruction source. The Skills guide agents through subject
@@ -168,18 +169,33 @@ PyPI wheel.
 
 ### Property intelligence
 
-**`property_intelligence`** — Full address-level property profile for one
-Australian address or coordinate. Parameters: `address` (free text, e.g.
-`34 Mary St Clayton VIC`) or `lat` + `lng` together, and optional `components`
-(comma-separated subset to return, e.g. `scores.noise,hazards` — available
-blocks: das, poi, planning, hazards, environment, transport, utilities,
-administrative, public_housing, scores). Returns the resolved address plus
-planning (zones, overlays, heritage), hazards (flood, bushfire), environment,
-transport, utilities, administrative boundaries, public housing, nearby
-development applications, points of interest, scored risk components, and a
-`meta` block carrying per-component status and provenance. Requires a key on a
-Property Intelligence plan; each lookup counts against the monthly quota unless
-the address comes from `property_sandbox_addresses`.
+**`property_intelligence`** — Generic entitlement-filtered address-level
+property lookup for existing and manually issued keys. Parameters: `address`
+(free text, e.g. `34 Mary St Clayton VIC`) or `lat` + `lng` together, and
+optional `components` (comma-separated subset to request). A requested name
+never grants a capability: the API intersects it with the key's server-side
+entitlement and field-level rights policy. This tool is not proof of a Full
+Self-Serve entitlement; new Full workflows should use the closed tool below.
+
+**`full_property_intelligence`** — Closed public Full Property Intelligence
+Self-Serve lookup. Parameters: `address` (recommended) or `lat` + `lng`
+together. It requests the base facts `das`, `poi`, `planning`, `transport`,
+`utilities`, `administrative` and `public_housing`; named hazard leaves for
+bushfire, flood, coastal, landslide and fire history; and named environmental
+leaves for soil, protected-area, heritage, threatened-species, Ramsar, koala,
+ecological, EPBC, bioregion and biodiversity context. The exact environmental
+leaf names are pinned in `contracts/focused-api-v1.json`.
+
+It also requests exactly these score leaves: `scores.noise`,
+`scores.aircraft_noise`, `scores.flood`, and `scores.bushfire`. It never requests
+top-level `hazards`, `environment` or `scores`, so a new provider field cannot
+enter Full automatically. Explicit official, rights-gated contamination and
+register facts may return as Property Core context; they do not grant
+`scores.contamination` or publish the standalone Contamination product. Solar,
+Neighbourhood Heat, Landscape Openness and the Walkability Pilot are excluded.
+The Full key carries separate `property_core` and `suburb_intelligence`
+capabilities, which do not add fields to this response. Provider-side source
+and rights gates still apply to every returned field.
 
 **`property_core`** — Closed score-free property context. Parameters: `address`
 (recommended) or `lat` + `lng`. Returns resolved address/parcel identity,
@@ -217,12 +233,16 @@ zero growth.
 `scores.aircraft_noise`, returning modelled road/rail context, Lden/day/night
 estimates, facade sectors, confidence evidence and aircraft-overlay assessment.
 It is not a site measurement, LA90 result or acoustic compliance assessment.
+Use the Noise fields in `property_sample` as the current keyless shape preview;
+the generic sample's other fields are not part of the Noise entitlement.
 
 **`flood_screening`** — Focused Flood Intelligence lookup. Parameters: `address`
 (recommended) or `lat` + `lng`. It requests exactly `scores.flood,hazards.flood`
 and keeps the national screening model, mapped official evidence and any
 study-specific depth separate. Missing depth or mapping is a coverage state,
-not zero depth or proof that flood risk is absent.
+not zero depth or proof that flood risk is absent. Screening is national;
+official modelled depth currently comes from 55 production rasters (48 Brisbane
+and 7 NSW).
 
 **`bushfire_screening`** — Focused commercial Bushfire Screening lookup.
 Parameters: `address` (recommended) or `lat` + `lng` together. It always requests
@@ -256,10 +276,13 @@ optimum tilt, per-field resolution, vintage, licence and attribution. It does
 not identify roof planes, usable area, building or tree shading, obstructions,
 tariffs, self-consumption or batteries and must not be used as rooftop design.
 
-**`property_sample`** — Inspect the complete Property Intelligence response shape
+**`property_sample`** — Inspect the generic Property Intelligence response shape
 before you have a key. **No API key required.** No parameters. Returns the real
 production payload for 163 Grattan St, Carlton VIC (a heritage terrace with DA
-activity), with every block present.
+activity). Noise and public Full currently share this preview because they do
+not yet have dedicated sample routes. It is a schema demonstration, not an
+entitlement manifest: Preview fields present in it are not thereby included in
+Noise or public Full Self-Serve.
 
 **`property_core_sample`** — Inspect the closed score-free Property Core v1
 contract. **No API key required.** Returns a real Carlton response containing
@@ -300,10 +323,12 @@ distinct hazard and planning profiles. Lookups of these addresses through
 ## Data boundary
 
 The adapter code and the data returned by DA Leads have separate licence
-boundaries. Installing this package does not grant a right to redistribute the
-API data. Starter and Scale usage is for internal analysis; customer-facing
-embedding, onward access, resale, or redistribution requires an Enterprise
-licence. See the [DA Leads Terms](https://daleads.com.au/terms),
+boundaries. Installing this package does not grant an API entitlement or a
+right to redistribute the API data. Public Full Self-Serve supports internal
+analysis and attributed static customer reports under its clickwrap terms.
+Interactive embedding, white labelling, onward access, resale, raw
+redistribution, special geometry and custom SLAs require Publisher or
+Enterprise rights. See the [DA Leads Terms](https://daleads.com.au/terms),
 [Privacy Policy](https://daleads.com.au/privacy), and
 [Data Attributions](https://daleads.com.au/attributions).
 

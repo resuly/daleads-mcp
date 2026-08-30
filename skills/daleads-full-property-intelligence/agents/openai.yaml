@@ -1,0 +1,4 @@
+interface:
+  display_name: "DA Leads Full Property Intelligence"
+  short_description: "Build a closed, rights-aware Australian property screen"
+  default_prompt: "Use $daleads-full-property-intelligence to inspect this property under the closed public Full contract, preserve coverage and attribution, and keep excluded Preview products outside the report."
