@@ -19,6 +19,13 @@ CONTAMINATION_CONTRACT = json.loads(
 )
 
 
+def _registered_contamination_tools() -> list[str]:
+    return sorted(
+        name for name in mcp_server.mcp._tool_manager._tools
+        if "contam" in name.casefold()
+    )
+
+
 def _client_path(tool: str, project_uid: str | None = None,
                  watch_uid: str | None = None) -> str:
     path = PROJECT_CONTRACT["tools"][tool]["path"].removeprefix("/api")
@@ -98,7 +105,20 @@ def test_contamination_contract_records_provider_only_fail_closed_surface():
     required = CONTAMINATION_CONTRACT["delivery_contract_schema"]["required"]
     assert "subject_identity" in required
     assert "professional_assessment_required" in required
-    assert not hasattr(mcp_server, "contamination_screening")
+    registered = mcp_server.mcp._tool_manager._tools
+    assert "property_intelligence" in registered
+    assert _registered_contamination_tools() == []
+
+
+@pytest.mark.parametrize("name", [
+    "contamination_screening", "property_contamination",
+    "property_contamination_sample",
+])
+def test_not_sellable_guard_detects_contamination_tool_name_variants(
+        monkeypatch, name):
+    registered = mcp_server.mcp._tool_manager._tools
+    monkeypatch.setitem(registered, name, object())
+    assert _registered_contamination_tools() == [name]
 
 
 def test_contamination_release_gate_fails_on_provider_drift(tmp_path):
