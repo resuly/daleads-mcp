@@ -55,5 +55,7 @@
     "rule": "Persist meta.cursor after every response. Use non-null meta.next_cursor only to fetch the next page immediately."
   },
   "detail_fields": ["project_uid", "name", "kind", "state", "status", "confidence", "updated_at", "location", "applications", "relations"],
-  "change_fields": ["cursor", "event_type", "observed_at", "redacted"]
+  "change_fields": ["cursor", "event_type", "observed_at", "redacted", "timeline"],
+  "timeline_fields": ["version_number", "label", "description", "decision", "status", "official_date", "detected_at", "changed_fields", "official_url", "source_key", "rights_status", "delivery_state"],
+  "timeline_delivery_states": ["internal_preview", "withheld_field_provenance"]
 }

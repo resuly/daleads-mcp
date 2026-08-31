@@ -40,9 +40,13 @@ When interpreting a response:
 
 - Report the canonical project, current normalized status, important linked
   applications and returned event timestamps separately.
-- Change values are currently redacted. The API omits rights-blocked fields and
-  does not yet return per-project coverage or conflict metadata. An omitted field
-  is not evidence that the underlying fact is absent.
+- Project changes include a stable `timeline` object with the same field names
+  used by DA Leads' admin preview. Values remain null while
+  `delivery_state=withheld_field_provenance`; evidence-bearing fields remain
+  null, including `changed_fields` (null means withheld, never zero changes).
+  Do not infer the hidden label, description, decision, status, date or source. The API omits
+  rights-blocked facts, and an omitted or null field is not evidence that the
+  underlying fact is absent.
 - Never upgrade a candidate link or low-confidence association into a confirmed
   project relationship. If sources disagree, explain the conflict.
 - Do not infer freshness beyond the returned source/update timestamps.

@@ -539,6 +539,20 @@ def test_cursor_contract_distinguishes_checkpoint_from_page_continuation():
     assert semantics["page_continuation"] == "meta.next_cursor"
 
 
+def test_project_timeline_contract_matches_admin_projection_shape():
+    assert PROJECT_CONTRACT["change_fields"] == [
+        "cursor", "event_type", "observed_at", "redacted", "timeline",
+    ]
+    assert PROJECT_CONTRACT["timeline_fields"] == [
+        "version_number", "label", "description", "decision", "status",
+        "official_date", "detected_at", "changed_fields", "official_url",
+        "source_key", "rights_status", "delivery_state",
+    ]
+    assert PROJECT_CONTRACT["timeline_delivery_states"] == [
+        "internal_preview", "withheld_field_provenance",
+    ]
+
+
 def test_full_property_intelligence_uses_exact_closed_component_set():
     with patch.object(mcp_server, "_api_get", return_value={"meta": {}}) as get:
         json.loads(mcp_server.full_property_intelligence(
