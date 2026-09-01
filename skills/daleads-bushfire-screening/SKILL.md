@@ -11,7 +11,10 @@ substitute a suburb or locality centroid.
 
 If the schema or product boundary is unclear, call `property_bushfire_sample`
 first. It is keyless and shows the standard commercial response. Preliminary BAL
-is intentionally absent from this product.
+can appear as an indicative band with range and confidence. It must travel with
+the mandatory disclaimer, is not a certified BAL assessment and cannot be used
+for building approval. The canned sample can predate the field, so absence in
+that snapshot is not a product exclusion.
 
 Before interpreting risk:
 
@@ -24,7 +27,9 @@ Before interpreting risk:
 3. Read every entry in `scores.bushfire.coverage`. `unavailable` and
    `not_integrated` are data gaps, not evidence that a hazard is absent.
 4. Treat the numeric score as a screening index where a higher number means
-   lower modelled risk. Do not convert it into a BAL or construction requirement.
+   lower modelled risk. If `indicative_bal` is present, report only its delivered
+   `bal`, `range` and `confidence` with the disclaimer. Never turn it into a
+   certified assessment or construction requirement.
 5. Preserve the response caveat and attribution when the result is quoted or
    inserted into a report.
 

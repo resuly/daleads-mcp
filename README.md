@@ -248,8 +248,10 @@ and 7 NSW).
 Parameters: `address` (recommended) or `lat` + `lng` together. It always requests
 exactly `scores.bushfire,hazards.bushfire`, returning subject identity, official
 overlay status, licensed hazard hits, modelled vegetation fuel, terrain, available
-fire history, coverage and caveats. The standard product does not include
-preliminary BAL and is not a certified assessment. Coordinate-only lookups are
+fire history, coverage and caveats. Where available, the response includes a
+preliminary indicative BAL band with range and confidence plus its mandatory
+disclaimer. It is not a certified BAL assessment and cannot be used for building
+approval. Coordinate-only lookups are
 labelled as such and must not be treated as a building location.
 
 **`walkability_screening`** — Focused Amenity & Walkability Screening Pilot lookup.
@@ -306,7 +308,8 @@ overlay status, terrain context, coverage notes and provenance.
 **`property_bushfire_sample`** — Inspect the standard Bushfire Screening contract.
 **No API key required.** No parameters. Returns a real Katoomba NSW focused
 sample with resolved subject identity, official/modelled evidence, coverage,
-attribution and an explicit marker that preliminary BAL is withheld.
+attribution and an explicit response-specific indicative BAL state. The canned
+snapshot can predate the field; live responses may include the preliminary band.
 
 **`property_context_sample`** — Inspect the coordinated Neighbourhood Context
 Beta and Solar Resource Developer Preview contract. **No API key required.** No

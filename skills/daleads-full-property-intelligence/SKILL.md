@@ -32,8 +32,11 @@ names would automatically inherit later, unreviewed fields.
 Factual contamination/register context is not `scores.contamination` and does
 not publish the standalone Contamination product. Solar Resource, the standalone
 Contamination score/product, Neighbourhood Heat, Landscape Openness, the
-Walkability Pilot and preliminary BAL are outside Full. A user may hold one of
-those products under a separate entitlement, but that must be established
+Walkability Pilot are outside Full. The included Bushfire component can carry a
+preliminary indicative BAL band with range and confidence plus its mandatory
+disclaimer; it is not a certified BAL assessment and cannot be used for building
+approval. A user may hold one of the excluded products under a separate
+entitlement, but that must be established
 independently and must not be described as Full.
 
 Before interpreting a response:

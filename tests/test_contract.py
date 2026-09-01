@@ -56,7 +56,7 @@ def test_release_versions_are_one_contract():
     version_match = re.search(r'^version = "([^"]+)"$', project_text, re.MULTILINE)
     assert version_match, "pyproject.toml has no single-line project version"
     project_version = version_match.group(1)
-    assert project_version == "0.4.0"
+    assert project_version == "0.4.1"
     registry = json.loads((root / "server.json").read_text(encoding="utf-8"))
     assert registry["version"] == project_version
     assert {package["version"] for package in registry["packages"]} == {
@@ -356,20 +356,26 @@ def test_full_self_serve_contract_is_closed_and_excludes_preview_products():
     assert "not entitlement evidence" in specification["sample_note"]
 
 
-def test_bushfire_contract_excludes_bal_delivery():
+def test_bushfire_contract_carries_released_bal_delivery():
     root = Path(__file__).resolve().parents[1]
     specification = FOCUSED_CONTRACT["tools"]["bushfire_screening"]
     assert all("bal" not in component.casefold()
                for component in specification["closed_components"])
+    assert specification["product_version"] == "bushfire-screening-v1"
     assert specification["preliminary_bal"] == {
-        "included": False,
-        "contract_marker_only": True,
+        "included": True,
+        "fields": ["bal", "range", "confidence"],
+        "mandatory_disclaimer": True,
+        "certified_assessment": False,
+        "building_approval_use": False,
     }
-    assert "does not include preliminary BAL" in (
+    assert "indicative BAL band" in (
         mcp_server.bushfire_screening.__doc__ or "")
     skill = (root / "skills" / "daleads-bushfire-screening" /
              "SKILL.md").read_text(encoding="utf-8")
-    assert "Preliminary BAL is intentionally absent" in " ".join(skill.split())
+    compact = " ".join(skill.split())
+    assert "indicative band with range and confidence" in compact
+    assert "cannot be used for building approval" in compact
 
 
 def test_flood_sales_surfaces_keep_national_and_depth_coverage_separate():

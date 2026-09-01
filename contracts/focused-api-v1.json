@@ -130,14 +130,18 @@
     },
     "bushfire_screening": {
       "lifecycle": "contract_ready",
+      "product_version": "bushfire-screening-v1",
       "method": "GET",
       "path": "/api/v1/property",
       "query": ["address", "lat", "lng", "components"],
       "subject": "address_or_coordinate_pair",
       "closed_components": ["scores.bushfire", "hazards.bushfire"],
       "preliminary_bal": {
-        "included": false,
-        "contract_marker_only": true
+        "included": true,
+        "fields": ["bal", "range", "confidence"],
+        "mandatory_disclaimer": true,
+        "certified_assessment": false,
+        "building_approval_use": false
       },
       "sample_tool": "property_bushfire_sample"
     },

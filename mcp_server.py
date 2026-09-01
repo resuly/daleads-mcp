@@ -804,8 +804,10 @@ def bushfire_screening(
 
     Returns the official bushfire overlay status and any licensed hazard hits,
     plus modelled fuel, terrain, fire-history coverage, score and
-    source metadata. This standard product does not include preliminary BAL and
-    is not a certified assessment. Prefer an address: the response then states
+    source metadata. Where available, it also returns an indicative BAL band
+    with range and confidence plus the mandatory preliminary-screen disclaimer.
+    It is not a certified BAL assessment and cannot be used for building
+    approval. Prefer an address: the response then states
     whether it resolved onto a cadastral parcel. Coordinates are accepted for
     portfolio triage but are labelled coordinate-only/on-parcel and must not be
     treated as a building location.
@@ -967,7 +969,9 @@ def property_bushfire_sample() -> str:
 
     Returns the focused production contract for a bushfire-fringe address in
     Katoomba NSW. It demonstrates subject identity, official/modelled status,
-    input coverage and the explicit exclusion of preliminary BAL.
+    input coverage and the response-specific indicative BAL state. A delivered
+    band is preliminary, not a certified assessment, and cannot be used for
+    building approval.
     """
     data = _api_get("/v1/property/sample/bushfire")
     return json.dumps(data, indent=2)
