@@ -54,7 +54,12 @@
     "page_continuation": "meta.next_cursor",
     "rule": "Persist meta.cursor after every response. Use non-null meta.next_cursor only to fetch the next page immediately."
   },
-  "detail_fields": ["project_uid", "name", "kind", "state", "status", "confidence", "updated_at", "location", "applications", "relations"],
+  "detail_fields": ["project_uid", "name", "kind", "state", "status", "confidence", "updated_at", "location", "applications", "relations", "current_snapshot"],
+  "current_snapshot_fields": ["delivery_state", "fields"],
+  "current_snapshot_fact_fields": ["field", "label", "value", "unit", "display_value", "state", "delivery_state", "evidence"],
+  "current_snapshot_evidence_fields": ["value", "unit", "display_value", "source_key", "source_url", "evidence_date", "page", "field_precision", "temporal", "relation", "basis", "scope_id", "extractor_version", "attribution", "delivery_state"],
+  "current_snapshot_field_states": ["observed", "conflict", "multiple_measures", "not_captured", "withheld"],
+  "current_snapshot_delivery_states": ["internal_preview", "delivered_field_provenance", "field_provenance_partial", "withheld_field_provenance"],
   "change_fields": ["cursor", "event_type", "observed_at", "redacted", "timeline"],
   "timeline_fields": ["version_number", "label", "description", "decision", "status", "official_date", "detected_at", "changed_fields", "official_url", "source_key", "rights_status", "delivery_state"],
   "timeline_delivery_states": ["internal_preview", "withheld_field_provenance"]
