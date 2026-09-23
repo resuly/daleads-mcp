@@ -157,6 +157,9 @@ def test_readme_tool_count_and_new_skills_are_complete():
             encoding="utf-8")
         assert "TODO" not in skill
         assert f"${name}" in interface
+        # UI metadata must not promise more than the API boundary: subject
+        # identity is resolved and records are preliminary, never "verified".
+        assert "verified" not in interface.lower()
         for adapter_root in (".agents", ".claude"):
             adapter = root / adapter_root / "skills" / name
             assert adapter.is_symlink()

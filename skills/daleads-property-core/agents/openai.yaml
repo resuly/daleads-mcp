@@ -1,4 +1,4 @@
 interface:
   display_name: "DA Leads Property Core"
-  short_description: "Inspect verified address and parcel context safely"
-  default_prompt: "Use $daleads-property-core to inspect the verified public-record context for this Australian property."
+  short_description: "Inspect resolved address and preliminary parcel context"
+  default_prompt: "Use $daleads-property-core to inspect the resolved address and preliminary public-record context for this Australian property."
